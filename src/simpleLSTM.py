@@ -11,12 +11,12 @@ import lightning.pytorch as pl
 class simpleLSTM(pl.LightningModule):
     def __init__(self):
         super().__init__()
-        self.loss = nn.MSELoss();
+        self.loss_fn = nn.MSELoss();
         self.relu = nn.ReLU()
         
         self.encoder = nn.Sequential(nn.Linear(4096, 1024), self.relu)
         self.lstm = nn.LSTM(1024, 512)     
-        self.decoder = nn.Sequential(nn.Linear(512, 1024), self.relu, nn.Linear(1024, 4096), self.relu)
+        self.decoder = nn.Sequential(nn.Linear(512, 1024), self.relu, nn.Linear(1024, 4096), self.relu, nn.Unflatten(1, (64,64)))
 
     def forward(self, x):
         # TODO something like the training step
@@ -26,15 +26,15 @@ class simpleLSTM(pl.LightningModule):
         x, y = batch['frames'], batch['y']
         
         h = None
+        lstm_out = None
         for frame_nr in range(x.shape[1]):
             frame = x[:, frame_nr, :, :].view(x.size(0), -1)
             encoded_frame = self.encoder(frame.type(FloatTensor))
-            # TODO fix needed from this point:
-            lstm_out, (h, c) = self.lstm(encoded_frame, h)
+            lstm_out, h = self.lstm(encoded_frame, h)
             lstm_out = self.relu(lstm_out)
-            out = self.decoder(lstm_out)
-        
-        return self.loss(out, y)
+        out = self.decoder(lstm_out)
+        loss = self.loss(out, y)
+        return loss
     
     # def validation_step(self, batch, batch_idx):
     
@@ -44,5 +44,5 @@ class simpleLSTM(pl.LightningModule):
         optimizer = optim.Adam(self.parameters(), lr=1e-3)
         return optimizer
     
-    def loss(self, x, y):
-        return self.loss(x, y)
+    def loss(self, pred, y):
+        return self.loss_fn(pred, y)
