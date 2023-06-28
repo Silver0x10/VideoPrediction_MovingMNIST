@@ -35,6 +35,7 @@ class simpleLSTM(pl.LightningModule):
         out = self.decoder(lstm_out)
 
         loss = self.loss(out, y)
+        self.log("mse", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return loss
     
     # def validation_step(self, batch, batch_idx):
