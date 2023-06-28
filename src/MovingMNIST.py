@@ -1,4 +1,4 @@
-import pytorch_lightning as pl
+import lightning as pl
 from torch.utils.data import TensorDataset, Dataset, DataLoader
 import numpy as np
 import torch
