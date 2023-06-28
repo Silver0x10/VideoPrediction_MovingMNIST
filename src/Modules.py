@@ -49,7 +49,7 @@ class ConvTranspose2D(nn.Module):
         #print('ECCOMI QUAA ', x.size())
         B,C,H,W = x.size()
 
-        y = self.convTran(x.type(FloatTensor))
+        y = self.convTran(x.float())
         y = self.activ(y)
         #print('forward decoder check BBB, output size = ',y.size())
         return y
@@ -81,7 +81,7 @@ class Encoder(nn.Module):
         # for i in range[1,self.encoder]:
         #     y = self.encoder[i](y)
         # return y
-        y = self.encoder(x.type(FloatTensor)).type(FloatTensor)
+        y = self.encoder(x.float()).float()
         return y
 
 
@@ -109,7 +109,7 @@ class Decoder(nn.Module):
         # for i in range[1,self.encoder]:
         #     y = self.encoder[i](y)
         # return y
-        y = self.decoder(x.type(FloatTensor)).type(FloatTensor)
+        y = self.decoder(x.float()).float()
         return y
         
         
@@ -122,7 +122,7 @@ class PlEncoderDecoder(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch['frames'], batch['y']
         
-        y = y.type(FloatTensor)
+        y = y.float()
         #print('Y size = ',y.size())
         x = torch.unsqueeze(x,2)
         #print("X size = ",x.size())
@@ -136,7 +136,7 @@ class PlEncoderDecoder(pl.LightningModule):
         #print('DECODER FINITO')
         #print('out size = ',out.size())
         loss = nn.functional.mse_loss(out, y)
-        print('LOSS = ',loss)
+        #print('LOSS = ',loss)
         return loss
 
     def configure_optimizers(self):
@@ -147,5 +147,3 @@ class PlEncoderDecoder(pl.LightningModule):
 # encoder = Encoder(C,3)
 # decoder = Decoder(C,3)
 # autoencoder = PlEncoderDecoder(encoder,decoder)
-
-    
