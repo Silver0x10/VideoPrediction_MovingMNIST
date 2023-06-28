@@ -1,4 +1,5 @@
 import os
+import torch
 from torch import optim, nn, FloatTensor
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor
@@ -19,20 +20,20 @@ class simpleLSTM(pl.LightningModule):
 
     def forward(self, x):
         # TODO something like the training step
-        return 0
+        return torch.zeros((1, 64,64))
     
     def training_step(self, batch, batch_idx):
-        x, y = batch['frames'], batch['y']
+        x, y = batch['frames'], batch['y'].float()
         
         h = None
         lstm_out = None
         for frame_nr in range(x.shape[1]):
-            frame = x[:, frame_nr, :, :].view(x.size(0), -1)
-            encoded_frame = self.encoder(frame.type(FloatTensor))
+            frame = x[:, frame_nr, :, :].view(x.size(0), -1).float()
+            encoded_frame = self.encoder(frame)
             lstm_out, h = self.lstm(encoded_frame, h)
-            lstm_out = self.relu(lstm_out)
+        lstm_out = self.relu(lstm_out)
         out = self.decoder(lstm_out)
-        y = y.type(FloatTensor)
+
         loss = self.loss(out, y)
         return loss
     
