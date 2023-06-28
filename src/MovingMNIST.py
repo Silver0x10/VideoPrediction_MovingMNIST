@@ -27,7 +27,7 @@ class MovingMNIST(Dataset):
         video = self[index]['frames']
         y = self[index]['y']
         with io.BytesIO() as gif:
-            imageio.mimsave(gif,video.numpy().astype(np.uint8),"GIF", duration=5)
+            imageio.mimsave(gif,video.numpy().astype(np.uint8),"GIF", fps=5)
             display(HBox([widgets.Image(value=gif.getvalue())]))
 
 
