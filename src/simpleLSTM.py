@@ -1,6 +1,5 @@
 import os
-from typing import Any
-from torch import optim, nn, utils, Tensor, FloatTensor
+from torch import optim, nn, FloatTensor
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor
 import lightning.pytorch as pl
@@ -33,6 +32,7 @@ class simpleLSTM(pl.LightningModule):
             lstm_out, h = self.lstm(encoded_frame, h)
             lstm_out = self.relu(lstm_out)
         out = self.decoder(lstm_out)
+        y = y.type(FloatTensor)
         loss = self.loss(out, y)
         return loss
     
