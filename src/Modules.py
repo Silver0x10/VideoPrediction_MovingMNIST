@@ -46,15 +46,11 @@ class ConvTranspose2D(nn.Module):
         self.activ = nn.ReLU()
 
     def forward(self,x):
-        #print('ECCOMI QUAA ', x.size())
-        B,C,H,W = x.size()
-
         y = self.convTran(x.float())
         y = self.activ(y)
         #print('forward decoder check BBB, output size = ',y.size())
         return y
 
-        
 
     
 class Encoder(nn.Module):
@@ -74,13 +70,6 @@ class Encoder(nn.Module):
                                  )
         
     def forward(self,x):
-        # # T,C,H,W = x.shape()
-        # print(x.size())
-        # y = self.encoder[0](x.type(FloatTensor))
-        # print(y)
-        # for i in range[1,self.encoder]:
-        #     y = self.encoder[i](y)
-        # return y
         y = self.encoder(x.float()).float()
         return y
 
@@ -95,49 +84,58 @@ class Decoder(nn.Module):
         super(Decoder,self).__init__()
         #L
         #The number of channels remains the same in all the layers
-        self.decoder = nn.Sequential(ConvTranspose2D(C, C, kernel_size=kernel_size),
-                                 ConvTranspose2D(C, C, kernel_size=kernel_size),
+        self.decoder = nn.Sequential(Conv2D(C, C, kernel_size=kernel_size),
+                                 Conv2D(C, C, kernel_size=kernel_size),
                                  nn.Upsample(scale_factor=2),
-                                 ConvTranspose2D(C, C, kernel_size=kernel_size),
-                                 ConvTranspose2D(C, C, kernel_size=kernel_size),
+                                 Conv2D(C, C, kernel_size=kernel_size),
+                                 Conv2D(C, C, kernel_size=kernel_size),
                                  nn.Upsample(scale_factor=2)
                                  )
         
     def forward(self,x):
-        # # T,C,H,W = x.shape()
-        # y = self.encoder[0](x.type(FloatTensor))
-        # for i in range[1,self.encoder]:
-        #     y = self.encoder[i](y)
-        # return y
-        y = self.decoder(x.float()).float()
+        y = self.decoder(x).float()
         return y
         
         
 class PlEncoderDecoder(pl.LightningModule):
     def __init__(self,encoder,decoder):
         super(PlEncoderDecoder,self).__init__()
+        self.lstm = nn.LSTM(256, 256)
+        #self.linear = nn.Linear()    
         self.encoder = encoder
         self.decoder = decoder
 
     def training_step(self, batch, batch_idx):
         x, y = batch['frames'], batch['y']
         
+
         y = y.float()
-        #print('Y size = ',y.size())
-        x = torch.unsqueeze(x,2)
-        #print("X size = ",x.size())
-        B,T,C,H,W = x.size()
-        x = x.view(B*T, C, H, W)
-        #print('Dopo la transformazione, X size = ',x.size())
-        z = self.encoder(x)
-        #print('ENCODER FINITO')
-        #print('z shape =',z.size())
-        out= self.decoder(z)
-        #print('DECODER FINITO')
-        #print('out size = ',out.size())
+        print('Y size = ',y.size())
+        print("X size = ",x.size())
+
+        h = None
+        lstm_out = None
+        for i in range(0,x.size(1)):
+            #print("X size = ",x.size())
+            #B,T,H,W = x.size()
+            x_frame = x[:,i,:,:].float()
+            print("Frame size = ",x_frame.size())
+            z = self.encoder(x_frame)
+            print('ENCODER FINITO')
+            print('z shape =',z.size())
+            z = z.view(z.size(0),-1).float()
+            lstm_out, h = self.lstm(z, h)
+            print("lstm_out", lstm_out.size())
+            lstm_out = torch.unsqueeze(torch.unsqueeze(lstm_out.view(16,16),0),0) #Applied 2 times because Decoder need [B,C,W,H] shape
+            print("Dopo la modifica, lstm_out = ", lstm_out.size())
+            out= self.decoder(lstm_out)
+            print('DECODER FINITO')
+            print('out size = ',out.size())
         loss = nn.functional.mse_loss(out, y)
-        #print('LOSS = ',loss)
+        print('LOSS = ',loss)
+        self.log("some_value", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return loss
+
 
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=1e-3)
