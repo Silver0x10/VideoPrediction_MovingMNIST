@@ -19,7 +19,8 @@ class simpleLSTM(pl.LightningModule):
         self.decoder = nn.Sequential(nn.Linear(512, 1024), self.relu, nn.Linear(1024, 4096), self.relu, nn.Unflatten(1, (64,64)))
 
     def forward(self, frame, h = None):
-        encoded_frame = self.encoder(frame)
+        frame = frame.view(frame.size(0)*frame.size(1)).float()
+        encoded_frame = self.encoder(frame).unsqueeze(0)
         lstm_out, h = self.lstm(encoded_frame, h)
         lstm_out = self.relu(lstm_out)
         out = self.decoder(lstm_out)
@@ -27,7 +28,7 @@ class simpleLSTM(pl.LightningModule):
     
     def training_step(self, batch, batch_idx):
         x, y = batch['frames'], batch['y'].float()
-        
+
         h = None
         lstm_out = None
         for frame_nr in range(x.shape[1]):
