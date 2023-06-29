@@ -110,8 +110,8 @@ class PlEncoderDecoder(pl.LightningModule):
         
 
         y = y.float()
-        print('Y size = ',y.size())
-        print("X size = ",x.size())
+        #print('Y size = ',y.size())
+        #print("X size = ",x.size())
 
         h = None
         lstm_out = None
@@ -119,20 +119,20 @@ class PlEncoderDecoder(pl.LightningModule):
             #print("X size = ",x.size())
             #B,T,H,W = x.size()
             x_frame = x[:,i,:,:].float()
-            print("Frame size = ",x_frame.size())
+            #print("Frame size = ",x_frame.size())
             z = self.encoder(x_frame)
-            print('ENCODER FINITO')
-            print('z shape =',z.size())
+            #print('ENCODER FINITO')
+            #print('z shape =',z.size())
             z = z.view(z.size(0),-1).float()
             lstm_out, h = self.lstm(z, h)
-            print("lstm_out", lstm_out.size())
+            #print("lstm_out", lstm_out.size())
             lstm_out = torch.unsqueeze(torch.unsqueeze(lstm_out.view(16,16),0),0) #Applied 2 times because Decoder need [B,C,W,H] shape
-            print("Dopo la modifica, lstm_out = ", lstm_out.size())
+            #print("Dopo la modifica, lstm_out = ", lstm_out.size())
             out= self.decoder(lstm_out)
-            print('DECODER FINITO')
-            print('out size = ',out.size())
+            #print('DECODER FINITO')
+            #print('out size = ',out.size())
         loss = nn.functional.mse_loss(out, y)
-        print('LOSS = ',loss)
+        #print('LOSS = ',loss)
         self.log("some_value", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return loss
 
