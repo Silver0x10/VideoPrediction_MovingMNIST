@@ -105,7 +105,7 @@ class PlEncoderDecoder(pl.LightningModule):
         self.encoder = encoder
         self.decoder = decoder
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch):
         x, y = batch['frames'], batch['y']
         
 
@@ -133,7 +133,39 @@ class PlEncoderDecoder(pl.LightningModule):
             #print('out size = ',out.size())
         loss = nn.functional.mse_loss(out, y)
         #print('LOSS = ',loss)
-        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log("train_loss", loss, on_epoch=True)
+        return loss
+    
+    def validation_step(self, batch):
+        x, y = batch['frames'], batch['y']
+        y = y.float()
+        h = None
+        lstm_out = None
+        for i in range(0,x.size(1)):
+            x_frame = x[:,i,:,:].float()
+            z = self.encoder(x_frame)
+            z = z.view(z.size(0),-1).float()
+            lstm_out, h = self.lstm(z, h)
+            lstm_out = torch.unsqueeze(torch.unsqueeze(lstm_out.view(16,16),0),0) #Applied 2 times because Decoder need [B,C,W,H] shape
+            out= self.decoder(lstm_out)
+        loss = nn.functional.mse_loss(out, y)
+        self.log("valid_loss", loss, on_epoch=True)
+        return loss
+    
+    def test_step(self, batch):
+        x, y = batch['frames'], batch['y']
+        y = y.float()
+        h = None
+        lstm_out = None
+        for i in range(0,x.size(1)):
+            x_frame = x[:,i,:,:].float()
+            z = self.encoder(x_frame)
+            z = z.view(z.size(0),-1).float()
+            lstm_out, h = self.lstm(z, h)
+            lstm_out = torch.unsqueeze(torch.unsqueeze(lstm_out.view(16,16),0),0) #Applied 2 times because Decoder need [B,C,W,H] shape
+            out= self.decoder(lstm_out)
+        loss = nn.functional.mse_loss(out, y)
+        self.log("test_loss", loss, on_epoch=True)
         return loss
 
 
