@@ -136,7 +136,7 @@ class PlEncoderDecoder(pl.LightningModule):
         self.log("train_loss", loss, on_epoch=True)
         return loss
     
-    def validation_step(self, batch):
+    def validation_step(self, batch, batch_idx):
         x, y = batch['frames'], batch['y']
         y = y.float()
         h = None
@@ -152,7 +152,7 @@ class PlEncoderDecoder(pl.LightningModule):
         self.log("valid_loss", loss, on_epoch=True)
         return loss
     
-    def test_step(self, batch):
+    def test_step(self, batch, batch_idx):
         x, y = batch['frames'], batch['y']
         y = y.float()
         h = None
