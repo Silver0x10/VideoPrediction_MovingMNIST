@@ -75,7 +75,7 @@ class PlEncoderDecoder(pl.LightningModule):
             #print('out size = ',out.size())
         loss = nn.functional.mse_loss(out, y)
         #print('LOSS = ',loss)
-        self.log("valid_loss", loss, on_epoch=True)
+        self.log("train_loss", loss, on_epoch=True)
         return loss
     
 
@@ -173,7 +173,7 @@ class PlEncoderDecoder(pl.LightningModule):
             #print('out size = ',out.size())
         loss = nn.functional.mse_loss(out, y)
         #print('LOSS = ',loss)
-        self.log("valid_loss", loss, on_epoch=True)
+        self.log("test_loss", loss, on_epoch=True)
         return loss
 
 
