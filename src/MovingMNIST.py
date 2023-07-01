@@ -21,7 +21,7 @@ class MovingMNIST(Dataset):
     def __getitem__(self, index):
         if index >= len(self): return None
         video = self.data[index]
-        return {'frames' : video[:-1], 'y' : video[-1]}
+        return {'index': index, 'frames': video[:-1], 'y': video[-1]}
     
     def visualize(self, index):
         video = self[index]['frames']
