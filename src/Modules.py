@@ -143,7 +143,7 @@ class PlEncoderDecoder(pl.LightningModule):
         for i in range(0,x.size(1)):
             #print("X size = ",x.size())
             #B,T,H,W = x.size()
-            x_frame = x[:,i,:,:].float()
+            x_frame = torch.unsqueeze(x[:,i,:,:].float(),0)
             #print("Frame size = ",x_frame.size())
 
             #ENCODER
