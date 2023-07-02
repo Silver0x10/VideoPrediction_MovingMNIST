@@ -38,44 +38,44 @@ class PlEncoderDecoder(pl.LightningModule):
         x, y = batch['frames'], batch['y']
 
         y = torch.unsqueeze(y,0).float()
-        print('Y size = ',y.size())
-        print("X size = ",x.size())
+        #print('Y size = ',y.size())
+        #print("X size = ",x.size())
 
         h = None
         lstm_out = None
         for i in range(0,x.size(1)):
-            print("After the for cicle, X size = ",x.size())
+            #print("After the for cicle, X size = ",x.size())
             #B,T,H,W = x.size()
             x_frame = torch.unsqueeze(x[:,i,:,:].float(),0)
-            print("Frame size = ",x_frame.size())
+            #print("Frame size = ",x_frame.size())
 
             #ENCODER
             z = self.Conv(x_frame)
             z_skip = self.Conv(z)
-            print('z prima dell downsapling is =',z_skip.size())
+            #print('z prima dell downsapling is =',z_skip.size())
             z = self.Conv_dwsamp(z_skip)
-            print('z dopo dell downsapling is =',z.size())
+            #print('z dopo dell downsapling is =',z.size())
             z = self.Conv(z)
-            print('ENCODER FINITO')
-            print('z shape =',z.size())
+            #print('ENCODER FINITO')
+            #print('z shape =',z.size())
 
             #LATENT SPACE
             z = z.view(z.size(0),-1).float()
-            print('DOPO AVERLO APPIATTITO z shape =',z.size())
+            #print('DOPO AVERLO APPIATTITO z shape =',z.size())
             lstm_out, h = self.lstm(z, h)
-            print("lstm_out", lstm_out.size())
+            #print("lstm_out", lstm_out.size())
             lstm_out = torch.unsqueeze(torch.unsqueeze(lstm_out.view(32,32),0),0) #Applied 2 times because Decoder need [B,C,W,H] shape
-            print("Dopo la modifica, lstm_out = ", lstm_out.size())
+            #print("Dopo la modifica, lstm_out = ", lstm_out.size())
 
             #DECODER
             z = self.Deconv(lstm_out)
             z = self.Deconv(z)
             z= self.Deconv_upsamp(z)
-            print('A QUESTO PUNTO Z SIZE =',z.size())
+            #print('A QUESTO PUNTO Z SIZE =',z.size())
             z_reshape = self.Deconv(torch.add(z, z_skip))
             out = self.Deconv(z_reshape)
-            print('DECODER FINITO')
-            print('out size = ',out.size())
+            #print('DECODER FINITO')
+            #print('out size = ',out.size())
         loss = nn.functional.mse_loss(out, y)
         #print('LOSS = ',loss)
         self.log("train_loss", loss, on_epoch=True)
@@ -95,7 +95,7 @@ class PlEncoderDecoder(pl.LightningModule):
             #print("X size = ",x.size())
             #B,T,H,W = x.size()
             x_frame = torch.unsqueeze(x[:,i,:,:].float(),0)
-            print("Frame size = ",x_frame.size())
+            #print("Frame size = ",x_frame.size())
 
             #ENCODER
             z = self.Conv(x_frame)
@@ -135,32 +135,32 @@ class PlEncoderDecoder(pl.LightningModule):
         x, y = batch['frames'], batch['y']
 
         y = torch.unsqueeze(y,0).float()
-        print('Y size = ',y.size())
-        print("X size = ",x.size())
+        #print('Y size = ',y.size())
+        #print("X size = ",x.size())
 
         h = None
         lstm_out = None
         for i in range(0,x.size(1)):
-            print("X size = ",x.size())
+            #print("X size = ",x.size())
             #B,T,H,W = x.size()
             x_frame = x[:,i,:,:].float()
-            print("Frame size = ",x_frame.size())
+            #print("Frame size = ",x_frame.size())
 
             #ENCODER
             z = self.Conv(x_frame)
             z_skip = self.Conv(z)
-            print('z prima dell downsapling is =',z_skip.size())
+            #print('z prima dell downsapling is =',z_skip.size())
             z = self.Conv_dwsamp(z_skip)
-            print('z dopo dell downsapling is =',z.size())
+            #print('z dopo dell downsapling is =',z.size())
             z = self.Conv(z)
-            print('ENCODER FINITO')
-            print('z shape =',z.size())
+            #print('ENCODER FINITO')
+            #print('z shape =',z.size())
 
             #LATENT SPACE
             z = z.view(z.size(0),-1).float()
-            print('DOPO AVERLO APPIATTITO z shape =',z.size())
+            #print('DOPO AVERLO APPIATTITO z shape =',z.size())
             lstm_out, h = self.lstm(z, h)
-            print("lstm_out", lstm_out.size())
+            #print("lstm_out", lstm_out.size())
             lstm_out = torch.unsqueeze(torch.unsqueeze(lstm_out.view(32,32),0),0) #Applied 2 times because Decoder need [B,C,W,H] shape
             #print("Dopo la modifica, lstm_out = ", lstm_out.size())
 
@@ -168,7 +168,7 @@ class PlEncoderDecoder(pl.LightningModule):
             z = self.Deconv(lstm_out)
             z = self.Deconv(z)
             z= self.Deconv_upsamp(z)
-            print('A QUESTO PUNTO Z SIZE =',z.size())
+            #print('A QUESTO PUNTO Z SIZE =',z.size())
             #print('SOMMANDO I DUE TENSORI, NE VIENE UNO CHE HA FORMA = ',giacomino.size())
             z_reshape = self.Deconv(torch.add(z, z_skip))
             out = self.Deconv(z_reshape)
