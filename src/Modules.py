@@ -13,7 +13,7 @@ import matplotlib as plttorch
 
                 
 class PlEncoderDecoder(pl.LightningModule):
-    def __init__(self, k_s, C=1):
+    def __init__(self, k_s, Batch_size, C=1):
         super(PlEncoderDecoder,self).__init__()
         self.Conv = nn.Sequential(nn.Conv2d(C, C, kernel_size=k_s,padding = 1),
                                   nn.ReLU(),
@@ -33,11 +33,12 @@ class PlEncoderDecoder(pl.LightningModule):
                                           nn.BatchNorm2d(C)
                                           )
         self.lstm = nn.LSTM(1024, 1024)
+        self.B_s = Batch_size
 
     def training_step(self, batch, batch_idx):
         x, y = batch['frames'], batch['y']
 
-        y = torch.unsqueeze(y,0).float()
+        y = torch.unsqueeze(y,1).float()
         #print('Y size = ',y.size())
         #print("X size = ",x.size())
 
@@ -46,7 +47,7 @@ class PlEncoderDecoder(pl.LightningModule):
         for i in range(0,x.size(1)):
             #print("After the for cicle, X size = ",x.size())
             #B,T,H,W = x.size()
-            x_frame = torch.unsqueeze(x[:,i,:,:].float(),0)
+            x_frame = torch.unsqueeze(x[:,i,:,:].float(),1)
             #print("Frame size = ",x_frame.size())
 
             #ENCODER
@@ -64,7 +65,7 @@ class PlEncoderDecoder(pl.LightningModule):
             #print('DOPO AVERLO APPIATTITO z shape =',z.size())
             lstm_out, h = self.lstm(z, h)
             #print("lstm_out", lstm_out.size())
-            lstm_out = torch.unsqueeze(torch.unsqueeze(lstm_out.view(32,32),0),0) #Applied 2 times because Decoder need [B,C,W,H] shape
+            lstm_out =lstm_out.view(self.B_s,1,32,32) #Applied 2 times because Decoder need [B,C,W,H] shape
             #print("Dopo la modifica, lstm_out = ", lstm_out.size())
 
             #DECODER
@@ -85,7 +86,7 @@ class PlEncoderDecoder(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y = batch['frames'], batch['y']
 
-        y = torch.unsqueeze(y,0).float()
+        y = torch.unsqueeze(y,1).float()
         #print('Y size = ',y.size())
         #print("X size = ",x.size())
 
@@ -94,7 +95,7 @@ class PlEncoderDecoder(pl.LightningModule):
         for i in range(0,x.size(1)):
             #print("X size = ",x.size())
             #B,T,H,W = x.size()
-            x_frame = torch.unsqueeze(x[:,i,:,:].float(),0)
+            x_frame = torch.unsqueeze(x[:,i,:,:].float(),1)
             #print("Frame size = ",x_frame.size())
 
             #ENCODER
@@ -112,7 +113,7 @@ class PlEncoderDecoder(pl.LightningModule):
             #print('DOPO AVERLO APPIATTITO z shape =',z.size())
             lstm_out, h = self.lstm(z, h)
             #print("lstm_out", lstm_out.size())
-            lstm_out = torch.unsqueeze(torch.unsqueeze(lstm_out.view(32,32),0),0) #Applied 2 times because Decoder need [B,C,W,H] shape
+            lstm_out =lstm_out.view(self.B_s,1,32,32) #Applied 2 times because Decoder need [B,C,W,H] shape
             #print("Dopo la modifica, lstm_out = ", lstm_out.size())
 
             #DECODER
@@ -134,7 +135,7 @@ class PlEncoderDecoder(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         x, y = batch['frames'], batch['y']
 
-        y = torch.unsqueeze(y,0).float()
+        y = torch.unsqueeze(y,1).float()
         #print('Y size = ',y.size())
         #print("X size = ",x.size())
 
@@ -143,7 +144,7 @@ class PlEncoderDecoder(pl.LightningModule):
         for i in range(0,x.size(1)):
             #print("X size = ",x.size())
             #B,T,H,W = x.size()
-            x_frame = torch.unsqueeze(x[:,i,:,:].float(),0)
+            x_frame = torch.unsqueeze(x[:,i,:,:].float(),1)
             #print("Frame size = ",x_frame.size())
 
             #ENCODER
@@ -161,7 +162,7 @@ class PlEncoderDecoder(pl.LightningModule):
             #print('DOPO AVERLO APPIATTITO z shape =',z.size())
             lstm_out, h = self.lstm(z, h)
             #print("lstm_out", lstm_out.size())
-            lstm_out = torch.unsqueeze(torch.unsqueeze(lstm_out.view(32,32),0),0) #Applied 2 times because Decoder need [B,C,W,H] shape
+            lstm_out =lstm_out.view(self.B_s,1,32,32) #Applied 2 times because Decoder need [B,C,W,H] shape
             #print("Dopo la modifica, lstm_out = ", lstm_out.size())
 
             #DECODER
