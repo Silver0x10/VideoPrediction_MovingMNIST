@@ -35,6 +35,28 @@ class PlEncoderDecoder(pl.LightningModule):
         self.lstm = nn.LSTM(1024, 1024)
         self.B_s = Batch_size
 
+
+    def forward(self, frame, h = None):
+        frame = frame.float().unsqueeze(0)
+
+        z = self.Conv(frame.unsqueeze(0))
+        z_skip = self.Conv(z)
+        z = self.Conv_dwsamp(z_skip)
+        z = self.Conv(z)
+
+        z = z.view(z.size(0),-1).float()
+        lstm_out, h = self.lstm(z, h)
+        lstm_out =lstm_out.view(1,1,32,32)
+
+        z = self.Deconv(lstm_out)
+        z = self.Deconv(z)
+        z= self.Deconv_upsamp(z)
+        z_reshape = self.Deconv(torch.add(z, z_skip))
+        out = self.Deconv(z_reshape)
+
+        return (out, h)
+    
+
     def training_step(self, batch, batch_idx):
         x, y = batch['frames'], batch['y']
 
@@ -68,15 +90,15 @@ class PlEncoderDecoder(pl.LightningModule):
             lstm_out =lstm_out.view(self.B_s,1,32,32) #Applied 2 times because Decoder need [B,C,W,H] shape
             #print("Dopo la modifica, lstm_out = ", lstm_out.size())
 
-            #DECODER
-            z = self.Deconv(lstm_out)
-            z = self.Deconv(z)
-            z= self.Deconv_upsamp(z)
-            #print('A QUESTO PUNTO Z SIZE =',z.size())
-            z_reshape = self.Deconv(torch.add(z, z_skip))
-            out = self.Deconv(z_reshape)
-            #print('DECODER FINITO')
-            #print('out size = ',out.size())
+        #DECODER
+        z = self.Deconv(lstm_out)
+        z = self.Deconv(z)
+        z= self.Deconv_upsamp(z)
+        #print('A QUESTO PUNTO Z SIZE =',z.size())
+        z_reshape = self.Deconv(torch.add(z, z_skip))
+        out = self.Deconv(z_reshape)
+        #print('DECODER FINITO')
+        #print('out size = ',out.size())
         loss = nn.functional.mse_loss(out, y)
         #print('LOSS = ',loss)
         self.log("train_loss", loss, on_epoch=True)
@@ -116,16 +138,16 @@ class PlEncoderDecoder(pl.LightningModule):
             lstm_out =lstm_out.view(self.B_s,1,32,32) #Applied 2 times because Decoder need [B,C,W,H] shape
             #print("Dopo la modifica, lstm_out = ", lstm_out.size())
 
-            #DECODER
-            z = self.Deconv(lstm_out)
-            z = self.Deconv(z)
-            z= self.Deconv_upsamp(z)
-            #print('A QUESTO PUNTO Z SIZE =',z.size())
-            #print('SOMMANDO I DUE TENSORI, NE VIENE UNO CHE HA FORMA = ',giacomino.size())
-            z_reshape = self.Deconv(torch.add(z, z_skip))
-            out = self.Deconv(z_reshape)
-            #print('DECODER FINITO')
-            #print('out size = ',out.size())
+        #DECODER
+        z = self.Deconv(lstm_out)
+        z = self.Deconv(z)
+        z= self.Deconv_upsamp(z)
+        #print('A QUESTO PUNTO Z SIZE =',z.size())
+        #print('SOMMANDO I DUE TENSORI, NE VIENE UNO CHE HA FORMA = ',giacomino.size())
+        z_reshape = self.Deconv(torch.add(z, z_skip))
+        out = self.Deconv(z_reshape)
+        #print('DECODER FINITO')
+        #print('out size = ',out.size())
         loss = nn.functional.mse_loss(out, y)
         #print('LOSS = ',loss)
         self.log("valid_loss", loss, on_epoch=True)
@@ -165,16 +187,16 @@ class PlEncoderDecoder(pl.LightningModule):
             lstm_out =lstm_out.view(self.B_s,1,32,32) #Applied 2 times because Decoder need [B,C,W,H] shape
             #print("Dopo la modifica, lstm_out = ", lstm_out.size())
 
-            #DECODER
-            z = self.Deconv(lstm_out)
-            z = self.Deconv(z)
-            z= self.Deconv_upsamp(z)
-            #print('A QUESTO PUNTO Z SIZE =',z.size())
-            #print('SOMMANDO I DUE TENSORI, NE VIENE UNO CHE HA FORMA = ',giacomino.size())
-            z_reshape = self.Deconv(torch.add(z, z_skip))
-            out = self.Deconv(z_reshape)
-            #print('DECODER FINITO')
-            #print('out size = ',out.size())
+        #DECODER
+        z = self.Deconv(lstm_out)
+        z = self.Deconv(z)
+        z= self.Deconv_upsamp(z)
+        #print('A QUESTO PUNTO Z SIZE =',z.size())
+        #print('SOMMANDO I DUE TENSORI, NE VIENE UNO CHE HA FORMA = ',giacomino.size())
+        z_reshape = self.Deconv(torch.add(z, z_skip))
+        out = self.Deconv(z_reshape)
+        #print('DECODER FINITO')
+        #print('out size = ',out.size())
         loss = nn.functional.mse_loss(out, y)
         #print('LOSS = ',loss)
         self.log("test_loss", loss, on_epoch=True)
