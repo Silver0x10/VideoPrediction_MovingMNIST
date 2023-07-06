@@ -8,3 +8,11 @@ W = 1  # Width
 
 mid_size = 1  # Dimension of smaller layers in Encoder/Decoder
 out_size = 1  # Dimension of the output of the Encoder. It will be the input of TAU
+
+
+class ParamsConvTAU():
+    def __init__(self):
+        self.batch_size = 5
+        self.channels = 1
+        
+        self.kernel_size = 3
