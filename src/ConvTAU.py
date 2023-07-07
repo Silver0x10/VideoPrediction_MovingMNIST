@@ -27,7 +27,7 @@ class TAU(pl.LightningModule):
         self.avgpool = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Sequential(
             nn.Linear(dim, params.fc_hidden_dim, bias=False), # reduction
-            nn.ReLU(True),
+            nn.ReLU(),
             nn.Linear(params.fc_hidden_dim, dim, bias=False), # expansion
             nn.Sigmoid()
         )
@@ -95,8 +95,7 @@ class Decoder(pl.LightningModule):
         decoded_frames = x
 
         for i in range(len(self.decoder)):
-            # if i==7: decoded_frames = torch.add(decoded_frames, skip)
-            if i==7: decoded_frames += skip
+            if i==7: decoded_frames = torch.add(decoded_frames, skip)
             decoded_frames = self.decoder[i](decoded_frames)
         
         # decoded_frames = self.readout(decoded_frames)
@@ -149,10 +148,10 @@ class ConvTAU(pl.LightningModule):
         
         out = self.decoder(tau_out, skip)
         out = out.view(B, T, 1, H, W)
-        print(out.shape)
 
         loss = self.loss(out, y)
         self.log("train_loss", loss, on_epoch=True)
+
         return loss
         
 
