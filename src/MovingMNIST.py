@@ -8,6 +8,7 @@ from ipywidgets import widgets, HBox
 from IPython.display import display
 import matplotlib as plt
 
+from src.parameters import MOVING_MNIST_INPUT_FRAMES, MOVING_MNIST_TOTAL_FRAMES
 
 class MovingMNIST(Dataset):
     def __init__(self, data_path = 'data/mnist_test_seq.npy'):
@@ -21,7 +22,7 @@ class MovingMNIST(Dataset):
     def __getitem__(self, index):
         if index >= len(self): return None
         video = self.data[index]
-        return {'index': index, 'frames': video[:-1], 'y': video[-1]}
+        return {'index': index, 'frames': video[:MOVING_MNIST_INPUT_FRAMES], 'y': video[MOVING_MNIST_INPUT_FRAMES:]}
     
     def visualize(self, index):
         video = self[index]['frames']
