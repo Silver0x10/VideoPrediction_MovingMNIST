@@ -136,7 +136,7 @@ class ConvTAU(pl.LightningModule):
     
         
     def training_step(self, batch, batch_idx):
-        x, y = batch['frames'].float(), batch['y'].float()
+        x, y = batch['frames'].float(), batch['y'].float().unsqueeze(2)
         B, T, H, W = x.shape
         x = x.view(B*T, 1, H, W)
         
