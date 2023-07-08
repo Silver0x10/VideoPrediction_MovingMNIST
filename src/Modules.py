@@ -58,147 +58,159 @@ class PlEncoderDecoder(pl.LightningModule):
     
 
     def training_step(self, batch, batch_idx):
-        x, y = batch['frames'], batch['y']
-
-        y = torch.unsqueeze(y,1).float()
-        #print('Y size = ',y.size())
-        #print("X size = ",x.size())
+        x, y = batch['frames'].float(), batch['y'].float().unsqueeze(2)
 
         h = None
         lstm_out = None
         for i in range(0,x.size(1)):
-            #print("After the for cicle, X size = ",x.size())
-            #B,T,H,W = x.size()
             x_frame = torch.unsqueeze(x[:,i,:,:].float(),1)
-            #print("Frame size = ",x_frame.size())
-
             #ENCODER
             z = self.Conv(x_frame)
             z_skip = self.Conv(z)
-            #print('z prima dell downsapling is =',z_skip.size())
             z = self.Conv_dwsamp(z_skip)
-            #print('z dopo dell downsapling is =',z.size())
             z = self.Conv(z)
-            #print('ENCODER FINITO')
-            #print('z shape =',z.size())
-
             #LATENT SPACE
             z = z.view(z.size(0),-1).float()
-            #print('DOPO AVERLO APPIATTITO z shape =',z.size())
             lstm_out, h = self.lstm(z, h)
-            #print("lstm_out", lstm_out.size())
             lstm_out =lstm_out.view(self.B_s,1,32,32) #Applied 2 times because Decoder need [B,C,W,H] shape
-            #print("Dopo la modifica, lstm_out = ", lstm_out.size())
 
         #DECODER
         z = self.Deconv(lstm_out)
         z = self.Deconv(z)
         z= self.Deconv_upsamp(z)
-        #print('A QUESTO PUNTO Z SIZE =',z.size())
         z_reshape = self.Deconv(torch.add(z, z_skip))
-        out = self.Deconv(z_reshape)
-        #print('DECODER FINITO')
-        #print('out size = ',out.size())
+        last_real = self.Deconv(z_reshape)
+
+        # From here on we predict the last 10 frames
+        out = None
+        for i in range(0,y.size(1)):
+            x_frame = torch.unsqueeze(x[:,i,:,:].float(),1)
+            #ENCODER
+            z = self.Conv(x_frame)
+            z_skip = self.Conv(z)
+            z = self.Conv_dwsamp(z_skip)
+            z = self.Conv(z)
+            #LATENT SPACE
+            z = z.view(z.size(0),-1).float()
+            lstm_out, h = self.lstm(z, h)
+            #print("lstm_out", lstm_out.size())
+            lstm_out =lstm_out.view(self.B_s,1,32,32) #Applied 2 times because Decoder need [B,C,W,H] shape
+            #DECODER
+            z = self.Deconv(lstm_out)
+            z = self.Deconv(z)
+            z= self.Deconv_upsamp(z)
+            z_reshape = self.Deconv(torch.add(z, z_skip))
+            out_frame = self.Deconv(z_reshape).unsqueeze(1)
+            if i == 0:
+                out = out_frame
+            else:
+                out = torch.cat((out,out_frame),1)
         loss = nn.functional.mse_loss(out, y)
-        #print('LOSS = ',loss)
         self.log("train_loss", loss, on_epoch=True)
         return loss
     
 
     def validation_step(self, batch, batch_idx):
-        x, y = batch['frames'], batch['y']
-
-        y = torch.unsqueeze(y,1).float()
-        #print('Y size = ',y.size())
-        #print("X size = ",x.size())
+        x, y = batch['frames'].float(), batch['y'].float().unsqueeze(2)
 
         h = None
         lstm_out = None
         for i in range(0,x.size(1)):
-            #print("X size = ",x.size())
-            #B,T,H,W = x.size()
             x_frame = torch.unsqueeze(x[:,i,:,:].float(),1)
-            #print("Frame size = ",x_frame.size())
-
             #ENCODER
             z = self.Conv(x_frame)
             z_skip = self.Conv(z)
-            #print('z prima dell downsapling is =',z_skip.size())
             z = self.Conv_dwsamp(z_skip)
-            #print('z dopo dell downsapling is =',z.size())
             z = self.Conv(z)
-            #print('ENCODER FINITO')
-            #print('z shape =',z.size())
-
             #LATENT SPACE
             z = z.view(z.size(0),-1).float()
-            #print('DOPO AVERLO APPIATTITO z shape =',z.size())
             lstm_out, h = self.lstm(z, h)
-            #print("lstm_out", lstm_out.size())
             lstm_out =lstm_out.view(self.B_s,1,32,32) #Applied 2 times because Decoder need [B,C,W,H] shape
-            #print("Dopo la modifica, lstm_out = ", lstm_out.size())
 
         #DECODER
         z = self.Deconv(lstm_out)
         z = self.Deconv(z)
         z= self.Deconv_upsamp(z)
-        #print('A QUESTO PUNTO Z SIZE =',z.size())
-        #print('SOMMANDO I DUE TENSORI, NE VIENE UNO CHE HA FORMA = ',giacomino.size())
         z_reshape = self.Deconv(torch.add(z, z_skip))
-        out = self.Deconv(z_reshape)
-        #print('DECODER FINITO')
-        #print('out size = ',out.size())
+        last_real = self.Deconv(z_reshape)
+
+        # From here on we predict the last 10 frames
+        out = None
+        for i in range(0,y.size(1)):
+            x_frame = torch.unsqueeze(x[:,i,:,:].float(),1)
+            #ENCODER
+            z = self.Conv(x_frame)
+            z_skip = self.Conv(z)
+            z = self.Conv_dwsamp(z_skip)
+            z = self.Conv(z)
+            #LATENT SPACE
+            z = z.view(z.size(0),-1).float()
+            lstm_out, h = self.lstm(z, h)
+            #print("lstm_out", lstm_out.size())
+            lstm_out =lstm_out.view(self.B_s,1,32,32) #Applied 2 times because Decoder need [B,C,W,H] shape
+            #DECODER
+            z = self.Deconv(lstm_out)
+            z = self.Deconv(z)
+            z= self.Deconv_upsamp(z)
+            z_reshape = self.Deconv(torch.add(z, z_skip))
+            out_frame = self.Deconv(z_reshape).unsqueeze(1)
+            if i == 0:
+                out = out_frame
+            else:
+                out = torch.cat((out,out_frame),1)
         loss = nn.functional.mse_loss(out, y)
-        #print('LOSS = ',loss)
-        self.log("valid_loss", loss, on_epoch=True)
+        self.log("validation_loss", loss, on_epoch=True)
         return loss
-    
 
     def test_step(self, batch, batch_idx):
-        x, y = batch['frames'], batch['y']
-
-        y = torch.unsqueeze(y,1).float()
-        #print('Y size = ',y.size())
-        #print("X size = ",x.size())
+        x, y = batch['frames'].float(), batch['y'].float().unsqueeze(2)
 
         h = None
         lstm_out = None
         for i in range(0,x.size(1)):
-            #print("X size = ",x.size())
-            #B,T,H,W = x.size()
             x_frame = torch.unsqueeze(x[:,i,:,:].float(),1)
-            #print("Frame size = ",x_frame.size())
-
             #ENCODER
             z = self.Conv(x_frame)
             z_skip = self.Conv(z)
-            #print('z prima dell downsapling is =',z_skip.size())
             z = self.Conv_dwsamp(z_skip)
-            #print('z dopo dell downsapling is =',z.size())
             z = self.Conv(z)
-            #print('ENCODER FINITO')
-            #print('z shape =',z.size())
-
             #LATENT SPACE
             z = z.view(z.size(0),-1).float()
-            #print('DOPO AVERLO APPIATTITO z shape =',z.size())
             lstm_out, h = self.lstm(z, h)
-            #print("lstm_out", lstm_out.size())
             lstm_out =lstm_out.view(self.B_s,1,32,32) #Applied 2 times because Decoder need [B,C,W,H] shape
-            #print("Dopo la modifica, lstm_out = ", lstm_out.size())
 
         #DECODER
         z = self.Deconv(lstm_out)
         z = self.Deconv(z)
         z= self.Deconv_upsamp(z)
-        #print('A QUESTO PUNTO Z SIZE =',z.size())
-        #print('SOMMANDO I DUE TENSORI, NE VIENE UNO CHE HA FORMA = ',giacomino.size())
         z_reshape = self.Deconv(torch.add(z, z_skip))
-        out = self.Deconv(z_reshape)
-        #print('DECODER FINITO')
-        #print('out size = ',out.size())
+        last_real = self.Deconv(z_reshape)
+
+        # From here on we predict the last 10 frames
+        out = None
+        for i in range(0,y.size(1)):
+            x_frame = torch.unsqueeze(x[:,i,:,:].float(),1)
+            #ENCODER
+            z = self.Conv(x_frame)
+            z_skip = self.Conv(z)
+            z = self.Conv_dwsamp(z_skip)
+            z = self.Conv(z)
+            #LATENT SPACE
+            z = z.view(z.size(0),-1).float()
+            lstm_out, h = self.lstm(z, h)
+            #print("lstm_out", lstm_out.size())
+            lstm_out =lstm_out.view(self.B_s,1,32,32) #Applied 2 times because Decoder need [B,C,W,H] shape
+            #DECODER
+            z = self.Deconv(lstm_out)
+            z = self.Deconv(z)
+            z= self.Deconv_upsamp(z)
+            z_reshape = self.Deconv(torch.add(z, z_skip))
+            out_frame = self.Deconv(z_reshape).unsqueeze(1)
+            if i == 0:
+                out = out_frame
+            else:
+                out = torch.cat((out,out_frame),1)
         loss = nn.functional.mse_loss(out, y)
-        #print('LOSS = ',loss)
         self.log("test_loss", loss, on_epoch=True)
         return loss
 
