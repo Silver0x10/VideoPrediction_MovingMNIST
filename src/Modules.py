@@ -17,20 +17,20 @@ class PlEncoderDecoder(pl.LightningModule):
         super(PlEncoderDecoder,self).__init__()
         self.Conv = nn.Sequential(nn.Conv2d(C, C, kernel_size=k_s,padding = 1),
                                   nn.ReLU(),
-                                  nn.BatchNorm2d(C)  
+                                  #nn.BatchNorm2d(C)  
                                  )
         self.Conv_dwsamp = nn.Sequential(nn.Conv2d(C, C, kernel_size=k_s, stride=2, padding=1),
                                          nn.ReLU(),
-                                         nn.BatchNorm2d(C)
+                                         #nn.BatchNorm2d(C)
                                         )
         self.Deconv = nn.Sequential(nn.Conv2d(C, C, kernel_size=k_s,padding=1),
                                     nn.ReLU(),
-                                    nn.BatchNorm2d(C)
+                                    #nn.BatchNorm2d(C)
                                    )
         self.Deconv_upsamp = nn.Sequential(nn.Conv2d(C, C*4, kernel_size=k_s,padding=1),
                                           nn.PixelShuffle(upscale_factor= 2),
                                           nn.ReLU(),
-                                          nn.BatchNorm2d(C)
+                                          #nn.BatchNorm2d(C)
                                           )
         self.lstm = nn.LSTM(256, 256)
         self.B_s = Batch_size
