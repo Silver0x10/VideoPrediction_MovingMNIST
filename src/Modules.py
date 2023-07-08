@@ -32,7 +32,7 @@ class PlEncoderDecoder(pl.LightningModule):
                                           nn.ReLU(),
                                           nn.BatchNorm2d(C)
                                           )
-        self.lstm = nn.LSTM(1024, 1024)
+        self.lstm = nn.LSTM(256, 256)
         self.B_s = Batch_size
 
 
@@ -43,12 +43,12 @@ class PlEncoderDecoder(pl.LightningModule):
         z_skip = self.Conv(z)
         z = self.Conv_dwsamp(z_skip)
         z = self.Conv(z)
-
+        z = self.Conv_dwsamp(z)
         z = z.view(z.size(0),-1).float()
         lstm_out, h = self.lstm(z, h)
-        lstm_out =lstm_out.view(1,1,32,32)
-
+        lstm_out =lstm_out.view(1,1,16,16) #Applied 2 times because Decoder need [B,C,W,H] shape
         z = self.Deconv(lstm_out)
+        z= self.Deconv_upsamp(z)
         z = self.Deconv(z)
         z= self.Deconv_upsamp(z)
         z_reshape = self.Deconv(torch.add(z, z_skip))
@@ -69,34 +69,39 @@ class PlEncoderDecoder(pl.LightningModule):
             z_skip = self.Conv(z)
             z = self.Conv_dwsamp(z_skip)
             z = self.Conv(z)
+            z = self.Conv_dwsamp(z)
             #LATENT SPACE
             z = z.view(z.size(0),-1).float()
             lstm_out, h = self.lstm(z, h)
-            lstm_out =lstm_out.view(self.B_s,1,32,32) #Applied 2 times because Decoder need [B,C,W,H] shape
-
-        #DECODER
-        z = self.Deconv(lstm_out)
-        z = self.Deconv(z)
-        z= self.Deconv_upsamp(z)
+            #print("lstm_out", lstm_out.size())
+            lstm_out =lstm_out.view(self.B_s,1,16,16) #Applied 2 times because Decoder need [B,C,W,H] shape
+            #DECODER
+            z = self.Deconv(lstm_out)
+            z= self.Deconv_upsamp(z)
+            z = self.Deconv(z)
+            z= self.Deconv_upsamp(z)
         z_reshape = self.Deconv(torch.add(z, z_skip))
         last_real = self.Deconv(z_reshape)
 
         # From here on we predict the last 10 frames
         out = None
+        prev_frame = last_real.unsqueeze(1)
         for i in range(0,y.size(1)):
-            x_frame = torch.unsqueeze(x[:,i,:,:].float(),1)
+            x_frame = prev_frame.squeeze(1)
             #ENCODER
             z = self.Conv(x_frame)
             z_skip = self.Conv(z)
             z = self.Conv_dwsamp(z_skip)
             z = self.Conv(z)
+            z = self.Conv_dwsamp(z)
             #LATENT SPACE
             z = z.view(z.size(0),-1).float()
             lstm_out, h = self.lstm(z, h)
             #print("lstm_out", lstm_out.size())
-            lstm_out =lstm_out.view(self.B_s,1,32,32) #Applied 2 times because Decoder need [B,C,W,H] shape
+            lstm_out =lstm_out.view(self.B_s,1,16,16) #Applied 2 times because Decoder need [B,C,W,H] shape
             #DECODER
             z = self.Deconv(lstm_out)
+            z= self.Deconv_upsamp(z)
             z = self.Deconv(z)
             z= self.Deconv_upsamp(z)
             z_reshape = self.Deconv(torch.add(z, z_skip))
@@ -105,6 +110,8 @@ class PlEncoderDecoder(pl.LightningModule):
                 out = out_frame
             else:
                 out = torch.cat((out,out_frame),1)
+            prev_frame = out_frame
+
         loss = nn.functional.mse_loss(out, y)
         self.log("train_loss", loss, on_epoch=True)
         return loss
@@ -122,34 +129,39 @@ class PlEncoderDecoder(pl.LightningModule):
             z_skip = self.Conv(z)
             z = self.Conv_dwsamp(z_skip)
             z = self.Conv(z)
+            z = self.Conv_dwsamp(z)
             #LATENT SPACE
             z = z.view(z.size(0),-1).float()
             lstm_out, h = self.lstm(z, h)
-            lstm_out =lstm_out.view(self.B_s,1,32,32) #Applied 2 times because Decoder need [B,C,W,H] shape
-
-        #DECODER
-        z = self.Deconv(lstm_out)
-        z = self.Deconv(z)
-        z= self.Deconv_upsamp(z)
+            #print("lstm_out", lstm_out.size())
+            lstm_out =lstm_out.view(self.B_s,1,16,16) #Applied 2 times because Decoder need [B,C,W,H] shape
+            #DECODER
+            z = self.Deconv(lstm_out)
+            z= self.Deconv_upsamp(z)
+            z = self.Deconv(z)
+            z= self.Deconv_upsamp(z)
         z_reshape = self.Deconv(torch.add(z, z_skip))
         last_real = self.Deconv(z_reshape)
 
         # From here on we predict the last 10 frames
         out = None
+        prev_frame = last_real.unsqueeze(1)
         for i in range(0,y.size(1)):
-            x_frame = torch.unsqueeze(x[:,i,:,:].float(),1)
+            x_frame = prev_frame.squeeze(1)
             #ENCODER
             z = self.Conv(x_frame)
             z_skip = self.Conv(z)
             z = self.Conv_dwsamp(z_skip)
             z = self.Conv(z)
+            z = self.Conv_dwsamp(z)
             #LATENT SPACE
             z = z.view(z.size(0),-1).float()
             lstm_out, h = self.lstm(z, h)
             #print("lstm_out", lstm_out.size())
-            lstm_out =lstm_out.view(self.B_s,1,32,32) #Applied 2 times because Decoder need [B,C,W,H] shape
+            lstm_out =lstm_out.view(self.B_s,1,16,16) #Applied 2 times because Decoder need [B,C,W,H] shape
             #DECODER
             z = self.Deconv(lstm_out)
+            z= self.Deconv_upsamp(z)
             z = self.Deconv(z)
             z= self.Deconv_upsamp(z)
             z_reshape = self.Deconv(torch.add(z, z_skip))
@@ -158,6 +170,7 @@ class PlEncoderDecoder(pl.LightningModule):
                 out = out_frame
             else:
                 out = torch.cat((out,out_frame),1)
+            prev_frame = out_frame
         loss = nn.functional.mse_loss(out, y)
         self.log("validation_loss", loss, on_epoch=True)
         return loss
@@ -174,34 +187,39 @@ class PlEncoderDecoder(pl.LightningModule):
             z_skip = self.Conv(z)
             z = self.Conv_dwsamp(z_skip)
             z = self.Conv(z)
+            z = self.Conv_dwsamp(z)
             #LATENT SPACE
             z = z.view(z.size(0),-1).float()
             lstm_out, h = self.lstm(z, h)
-            lstm_out =lstm_out.view(self.B_s,1,32,32) #Applied 2 times because Decoder need [B,C,W,H] shape
-
-        #DECODER
-        z = self.Deconv(lstm_out)
-        z = self.Deconv(z)
-        z= self.Deconv_upsamp(z)
+            #print("lstm_out", lstm_out.size())
+            lstm_out =lstm_out.view(self.B_s,1,16,16) #Applied 2 times because Decoder need [B,C,W,H] shape
+            #DECODER
+            z = self.Deconv(lstm_out)
+            z= self.Deconv_upsamp(z)
+            z = self.Deconv(z)
+            z= self.Deconv_upsamp(z)
         z_reshape = self.Deconv(torch.add(z, z_skip))
         last_real = self.Deconv(z_reshape)
 
         # From here on we predict the last 10 frames
         out = None
+        prev_frame = last_real.unsqueeze(1)
         for i in range(0,y.size(1)):
-            x_frame = torch.unsqueeze(x[:,i,:,:].float(),1)
+            x_frame = prev_frame.squeeze(1)
             #ENCODER
             z = self.Conv(x_frame)
             z_skip = self.Conv(z)
             z = self.Conv_dwsamp(z_skip)
             z = self.Conv(z)
+            z = self.Conv_dwsamp(z)
             #LATENT SPACE
             z = z.view(z.size(0),-1).float()
             lstm_out, h = self.lstm(z, h)
             #print("lstm_out", lstm_out.size())
-            lstm_out =lstm_out.view(self.B_s,1,32,32) #Applied 2 times because Decoder need [B,C,W,H] shape
+            lstm_out =lstm_out.view(self.B_s,1,16,16) #Applied 2 times because Decoder need [B,C,W,H] shape
             #DECODER
             z = self.Deconv(lstm_out)
+            z= self.Deconv_upsamp(z)
             z = self.Deconv(z)
             z= self.Deconv_upsamp(z)
             z_reshape = self.Deconv(torch.add(z, z_skip))
@@ -210,6 +228,7 @@ class PlEncoderDecoder(pl.LightningModule):
                 out = out_frame
             else:
                 out = torch.cat((out,out_frame),1)
+            prev_frame = out_frame
         loss = nn.functional.mse_loss(out, y)
         self.log("test_loss", loss, on_epoch=True)
         return loss
