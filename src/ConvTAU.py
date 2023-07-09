@@ -187,9 +187,9 @@ class ConvTAU(pl.LightningModule):
         out = out.view(B, T, 1, H, W)
 
         loss, mse_loss, kl_loss = self.loss(out, y)
-        self.log("valid_loss", loss, on_epoch=True)
-        self.log("valid_mse_loss", mse_loss, on_epoch=True)
-        self.log("valid_kl_loss", kl_loss, on_epoch=True)
+        self.log("validation_loss", loss, on_epoch=True)
+        self.log("validation_mse_loss", mse_loss, on_epoch=True)
+        self.log("validation_kl_loss", kl_loss, on_epoch=True)
 
         return loss
     
