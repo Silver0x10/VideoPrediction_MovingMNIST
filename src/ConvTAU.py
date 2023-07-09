@@ -218,7 +218,7 @@ class ConvTAU(pl.LightningModule):
         
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=self.params.learning_rate)
+        optimizer = optim.AdamW(self.parameters(), lr=self.params.learning_rate, weight_decay=self.params.weight_decay)
         return optimizer
     
     

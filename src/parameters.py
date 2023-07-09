@@ -9,7 +9,8 @@ MOVING_MNIST_INPUT_FRAMES = 10
 
 class ParamsConvTAU():
     def __init__(self):
-        self.learning_rate = 1e-3
+        self.learning_rate = 0.01
+        self.weight_decay = 0.05
         self.batch_size = 5
         self.frames_per_sample = MOVING_MNIST_INPUT_FRAMES
         self.channels = 1
