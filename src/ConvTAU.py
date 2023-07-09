@@ -103,13 +103,27 @@ class Decoder(pl.LightningModule):
         return decoded_frames
     
 
+def kullback_leibler_divergence(pred_y, batch_y, tau=0.1, eps=1e-12):
+        B, T, C = pred_y.shape[:3]
+        if T <= 2:  return 0
+        gap_pred_y = (pred_y[:, 1:] - pred_y[:, :-1]).reshape(B, T-1, -1)
+        gap_batch_y = (batch_y[:, 1:] - batch_y[:, :-1]).reshape(B, T-1, -1)
+        softmax_gap_p = nn.functional.softmax(gap_pred_y / tau, -1)
+        softmax_gap_b = nn.functional.softmax(gap_batch_y / tau, -1)
+        loss_gap = softmax_gap_p * \
+            torch.log(softmax_gap_p / (softmax_gap_b + eps) + eps)
+        return loss_gap.mean()
+    
+
 class ConvTAU(pl.LightningModule):
-    def __init__(self, params):
+    def __init__(self, params: ParamsConvTAU):
         super().__init__()        
-        C = params.channels
-        k_s = params.kernel_size
+        self.params = params
+        # C = params.channels
+        # k_s = params.kernel_size
         
-        self.loss_fn = nn.MSELoss();
+        self.mse = nn.MSELoss() # to focus on intra-frame-level differences
+        self.kl_divergence = kullback_leibler_divergence # to focus on inter-frame-level differences
 
         self.encoder = Encoder(params)
         self.tau = TAU(params)
@@ -149,17 +163,68 @@ class ConvTAU(pl.LightningModule):
         out = self.decoder(tau_out, skip)
         out = out.view(B, T, 1, H, W)
 
-        loss = self.loss(out, y)
+        loss, mse_loss, kl_loss = self.loss(out, y)
         self.log("train_loss", loss, on_epoch=True)
+        self.log("train_mse_loss", mse_loss, on_epoch=True)
+        self.log("train_kl_loss", kl_loss, on_epoch=True)
+
+        return loss
+    
+    
+    def validation_step(self, batch, batch_idx):
+        x, y = batch['frames'].float(), batch['y'].float().unsqueeze(2)
+        B, T, H, W = x.shape
+        x = x.view(B*T, 1, H, W)
+        
+        h, skip = self.encoder(x)
+        BT, C_, H_, W_ = h.shape
+        
+        h = h.view(B, T*C_, H_, W_)
+        tau_out = self.tau(h)
+        tau_out = tau_out.view(B*T, C_, H_, W_)
+        
+        out = self.decoder(tau_out, skip)
+        out = out.view(B, T, 1, H, W)
+
+        loss, mse_loss, kl_loss = self.loss(out, y)
+        self.log("valid_loss", loss, on_epoch=True)
+        self.log("valid_mse_loss", mse_loss, on_epoch=True)
+        self.log("valid_kl_loss", kl_loss, on_epoch=True)
+
+        return loss
+    
+    
+    def test_step(self, batch, batch_idx):
+        x, y = batch['frames'].float(), batch['y'].float().unsqueeze(2)
+        B, T, H, W = x.shape
+        x = x.view(B*T, 1, H, W)
+        
+        h, skip = self.encoder(x)
+        BT, C_, H_, W_ = h.shape
+        
+        h = h.view(B, T*C_, H_, W_)
+        tau_out = self.tau(h)
+        tau_out = tau_out.view(B*T, C_, H_, W_)
+        
+        out = self.decoder(tau_out, skip)
+        out = out.view(B, T, 1, H, W)
+
+        loss, mse_loss, kl_loss = self.loss(out, y)
+        self.log("test_loss", loss, on_epoch=True)
+        self.log("test_mse_loss", mse_loss, on_epoch=True)
+        self.log("test_kl_loss", kl_loss, on_epoch=True)
 
         return loss
         
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = optim.Adam(self.parameters(), lr=self.params.learning_rate)
         return optimizer
     
+    
     def loss(self, pred, y):
-        # TODO KULLBACK-LEIBLER divergence
-        return self.loss_fn(pred, y)
+        mse_loss = self.mse(pred, y)
+        kl_loss = self.params.kullback_leibler_divergence_weight * self.kl_divergence(pred, y)
+        loss = mse_loss + kl_loss
+        return (loss, mse_loss, kl_loss)
         
