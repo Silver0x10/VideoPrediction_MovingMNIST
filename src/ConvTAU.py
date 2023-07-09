@@ -18,6 +18,10 @@ class TAU(pl.LightningModule):
         dd_k = k_s // dilation + ((k_s // dilation) % 2 - 1)
         dd_p = (dilation * (dd_k - 1) // 2)
         
+        self.proj_1 = nn.Conv2d(dim, dim, 1)
+        self.activation = nn.GELU()
+        self.proj_2 = nn.Conv2d(dim, dim, 1)
+        
         # Statical Attention Modules
         self.dw_conv = nn.Conv2d(dim, dim, kernel_size=d_k, padding=d_p, groups=dim)
         self.dw_d_conv = nn.Conv2d(dim, dim, dd_k, stride=1, padding=dd_p, groups=dim, dilation=dilation)
@@ -35,6 +39,8 @@ class TAU(pl.LightningModule):
     
     def forward(self, x):
         skip = x.clone()
+        
+        x = self.activation( self.proj_1(x) )
 
         # Statical Attention
         sa = self.onebyone_conv( self.dw_d_conv( self.dw_conv(x) ) )
@@ -43,7 +49,11 @@ class TAU(pl.LightningModule):
         da = self.avgpool(x).view(x.shape[0], x.shape[1])
         da = self.fc(da).view(x.shape[0], x.shape[1], 1, 1)
         
-        return sa * da * skip
+        out = sa * da * skip
+        
+        out = torch.add(self.proj_2(out), skip)
+        
+        return out
     
         
 class Encoder(pl.LightningModule):
