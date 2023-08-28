@@ -16,7 +16,7 @@ class simpleLSTM(pl.LightningModule):
         self.lstm = nn.LSTM(1024, 1024)     
         self.decoder = nn.Sequential(nn.Linear(1024, 2048), self.relu, nn.Linear(2048, 4096), self.relu, nn.Unflatten(1, (64,64)))
 
-    def forward(self, frame, h = None):
+    def forward(self, x, h = None):
         if len(x.shape) < 3: # single frame prediction:
             frame = x.view(x.size(0)*x.size(1)).float()
             encoded_frame = self.encoder(frame).unsqueeze(0)

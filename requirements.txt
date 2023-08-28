@@ -1,3 +1,4 @@
 lightning
 numpy
 wandb
+imageio==2.25.1
