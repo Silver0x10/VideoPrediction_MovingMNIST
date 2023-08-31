@@ -12,9 +12,9 @@ class simpleLSTM(pl.LightningModule):
         self.loss_fn = nn.MSELoss();
         self.relu = nn.ReLU()
         
-        self.encoder = nn.Sequential(nn.Linear(4096, 2048), self.relu, nn.Linear(2048, 1024), self.relu)
-        self.lstm = nn.LSTM(1024, 1024)     
-        self.decoder = nn.Sequential(nn.Linear(1024, 2048), self.relu, nn.Linear(2048, 4096), self.relu, nn.Unflatten(1, (64,64)))
+        self.encoder = nn.Sequential(nn.Linear(4096, 2048), self.relu, nn.Linear(2048, 2048), self.relu)
+        self.lstm = nn.LSTM(2048, 1024, bidirectional=True)     
+        self.decoder = nn.Sequential(nn.Linear(2048, 2048), self.relu, nn.Linear(2048, 4096), self.relu, nn.Unflatten(1, (64,64)))
 
     def forward(self, x, h = None):
         if len(x.shape) < 3: # single frame prediction:
@@ -28,6 +28,7 @@ class simpleLSTM(pl.LightningModule):
         # sequence prediction:
         x = x.unsqueeze(0)
         lstm_out = None
+        h = None
         for frame_nr in range(x.shape[1]):
             frame = x[:, frame_nr, :, :].view(x.size(0), -1).float()
             encoded_frame = self.encoder(frame)
@@ -112,7 +113,7 @@ class simpleLSTM(pl.LightningModule):
         
     
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = optim.Adam(self.parameters(), lr=0.01)
         return optimizer
     
     def loss(self, pred, y):
