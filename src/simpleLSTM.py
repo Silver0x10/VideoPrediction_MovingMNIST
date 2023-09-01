@@ -35,10 +35,13 @@ class simpleLSTM(pl.LightningModule):
             lstm_out, h = self.lstm(encoded_frame, h)        
             lstm_out = self.relu(lstm_out)
         
-        out = self.decoder(lstm_out).unsqueeze(1)
-
+        out_i = self.decoder(lstm_out).unsqueeze(1)
+        out = out_i
+        
         for i in range(9):
-            lstm_out, h = self.lstm(lstm_out, h)
+            encoded_frame = self.encoder(out_i)
+            lstm_out, h = self.lstm(encoded_frame, h)
+            lstm_out = self.relu(lstm_out)
             out_i = self.decoder(lstm_out).unsqueeze(1)
             out = torch.cat((out, out_i), 1)
 
@@ -56,9 +59,13 @@ class simpleLSTM(pl.LightningModule):
             lstm_out, h = self.lstm(encoded_frame, h)        
             lstm_out = self.relu(lstm_out)
         
-        out = self.decoder(lstm_out).unsqueeze(1)
+        out_i = self.decoder(lstm_out).unsqueeze(1)
+        out = out_i
+        
         for i in range(y.shape[1] - 1):
-            lstm_out, h = self.lstm(lstm_out, h)
+            encoded_frame = self.encoder(out_i)
+            lstm_out, h = self.lstm(encoded_frame, h)
+            lstm_out = self.relu(lstm_out)
             out_i = self.decoder(lstm_out).unsqueeze(1)
             out = torch.cat((out, out_i), 1)
 
@@ -78,10 +85,13 @@ class simpleLSTM(pl.LightningModule):
             lstm_out, h = self.lstm(encoded_frame, h)        
             lstm_out = self.relu(lstm_out)
         
-        out = self.decoder(lstm_out).unsqueeze(1)
-
+        out_i = self.decoder(lstm_out).unsqueeze(1)
+        out = out_i
+        
         for i in range(y.shape[1] - 1):
-            lstm_out, h = self.lstm(lstm_out, h)
+            encoded_frame = self.encoder(out_i)
+            lstm_out, h = self.lstm(encoded_frame, h)
+            lstm_out = self.relu(lstm_out)
             out_i = self.decoder(lstm_out).unsqueeze(1)
             out = torch.cat((out, out_i), 1)
 
@@ -100,10 +110,13 @@ class simpleLSTM(pl.LightningModule):
             lstm_out, h = self.lstm(encoded_frame, h)        
             lstm_out = self.relu(lstm_out)
         
-        out = self.decoder(lstm_out).unsqueeze(1)
-
+        out_i = self.decoder(lstm_out).unsqueeze(1)
+        out = out_i
+        
         for i in range(y.shape[1] - 1):
-            lstm_out, h = self.lstm(lstm_out, h)
+            encoded_frame = self.encoder(out_i)
+            lstm_out, h = self.lstm(encoded_frame, h)
+            lstm_out = self.relu(lstm_out)
             out_i = self.decoder(lstm_out).unsqueeze(1)
             out = torch.cat((out, out_i), 1)
 
