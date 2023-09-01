@@ -35,12 +35,10 @@ class simpleLSTM(pl.LightningModule):
             lstm_out, h = self.lstm(encoded_frame, h)        
             lstm_out = self.relu(lstm_out)
         
-        out_i = self.decoder(lstm_out)
-        out = out_i.unsqueeze(1)
+        out = self.decoder(lstm_out).unsqueeze(1)
         
         for i in range(9):
-            encoded_frame = self.encoder(out_i.view(x.size(0), -1))
-            lstm_out, h = self.lstm(encoded_frame, h)
+            lstm_out, h = self.lstm(lstm_out, h)
             lstm_out = self.relu(lstm_out)
             out_i = self.decoder(lstm_out).unsqueeze(1)
             out = torch.cat((out, out_i), 1)
@@ -59,15 +57,13 @@ class simpleLSTM(pl.LightningModule):
             lstm_out, h = self.lstm(encoded_frame, h)        
             lstm_out = self.relu(lstm_out)
 
-        out_i = self.decoder(lstm_out)
-        out = out_i.unsqueeze(1)
+        out = self.decoder(lstm_out).unsqueeze(1)
         
         for i in range(y.shape[1] - 1):
-            encoded_frame = self.encoder(out_i.view(x.size(0), -1))
-            lstm_out, h = self.lstm(encoded_frame, h)
+            lstm_out, h = self.lstm(lstm_out, h)
             lstm_out = self.relu(lstm_out)
-            out_i = self.decoder(lstm_out)
-            out = torch.cat((out, out_i.unsqueeze(1)), 1)
+            out_i = self.decoder(lstm_out).unsqueeze(1)
+            out = torch.cat((out, out_i), 1)
 
         loss = self.loss(out, y)
         # self.log("mse", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
@@ -85,15 +81,13 @@ class simpleLSTM(pl.LightningModule):
             lstm_out, h = self.lstm(encoded_frame, h)        
             lstm_out = self.relu(lstm_out)
         
-        out_i = self.decoder(lstm_out)
-        out = out_i.unsqueeze(1)
+        out = self.decoder(lstm_out).unsqueeze(1)
         
         for i in range(y.shape[1] - 1):
-            encoded_frame = self.encoder(out_i.view(x.size(0), -1))
-            lstm_out, h = self.lstm(encoded_frame, h)
+            lstm_out, h = self.lstm(lstm_out, h)
             lstm_out = self.relu(lstm_out)
-            out_i = self.decoder(lstm_out)
-            out = torch.cat((out, out_i.unsqueeze(1)), 1)
+            out_i = self.decoder(lstm_out).unsqueeze(1)
+            out = torch.cat((out, out_i), 1)
 
         loss = self.loss(out, y)
         self.log("valid_loss", loss, on_epoch=True)
@@ -110,15 +104,13 @@ class simpleLSTM(pl.LightningModule):
             lstm_out, h = self.lstm(encoded_frame, h)        
             lstm_out = self.relu(lstm_out)
         
-        out_i = self.decoder(lstm_out)
-        out = out_i.unsqueeze(1)
+        out = self.decoder(lstm_out).unsqueeze(1)
         
         for i in range(y.shape[1] - 1):
-            encoded_frame = self.encoder(out_i.view(x.size(0), -1))
-            lstm_out, h = self.lstm(encoded_frame, h)
+            lstm_out, h = self.lstm(lstm_out, h)
             lstm_out = self.relu(lstm_out)
-            out_i = self.decoder(lstm_out)
-            out = torch.cat((out, out_i.unsqueeze(1)), 1)
+            out_i = self.decoder(lstm_out).unsqueeze(1)
+            out = torch.cat((out, out_i), 1)
 
         loss = self.loss(out, y)
         self.log("test_loss", loss, on_epoch=True)
