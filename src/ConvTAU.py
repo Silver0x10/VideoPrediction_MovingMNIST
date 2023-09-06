@@ -66,7 +66,8 @@ class Encoder(pl.LightningModule):
                                         nn.ReLU(),
                                         nn.Conv2d(C, C, kernel_size=k_s, padding = 1),
                                         nn.ReLU(),
-                                        nn.Conv2d(C, C, kernel_size=k_s, stride=2, padding = 1),
+                                        # nn.Conv2d(C, C, kernel_size=k_s, stride=2, padding = 1),
+                                        nn.Conv2d(C, C, kernel_size=k_s, padding = 1),
                                         nn.ReLU(),
                                         nn.Conv2d(C, C, kernel_size=k_s, padding = 1),
                                         nn.ReLU()
@@ -89,14 +90,16 @@ class Decoder(pl.LightningModule):
         C = params.channels
         k_s = params.kernel_size
         
-        self.decoder = nn.Sequential(nn.Conv2d(C, C, kernel_size=k_s, padding = 1),
+        self.decoder = nn.Sequential(nn.ConvTranspose2d(C, C, kernel_size=k_s, padding = 1),
                                         nn.ReLU(),
-                                        nn.Conv2d(C, C, kernel_size=k_s, padding = 1),
+                                        nn.ConvTranspose2d(C, C, kernel_size=k_s, padding = 1),
                                         nn.ReLU(),
-                                        nn.Conv2d(C, C*4, kernel_size=k_s, padding = 1),
-                                        nn.PixelShuffle(upscale_factor= 2),
+                                        # nn.Conv2d(C, C*4, kernel_size=k_s, padding = 1),
+                                        # nn.PixelShuffle(upscale_factor= 2),
+                                        # nn.ReLU(),
+                                        nn.ConvTranspose2d(C, C, kernel_size=k_s, padding = 1),
                                         nn.ReLU(),
-                                        nn.Conv2d(C, C, kernel_size=k_s, padding = 1),
+                                        nn.ConvTranspose2d(C, C, kernel_size=k_s, padding = 1),
                                         nn.ReLU()
                                         )
         # self.readout = nn.Conv2d(19, C, 1)
@@ -105,7 +108,7 @@ class Decoder(pl.LightningModule):
         decoded_frames = x
 
         for i in range(len(self.decoder)):
-            if i==7: decoded_frames = torch.add(decoded_frames, skip)
+            # if i==7: decoded_frames = torch.add(decoded_frames, skip)
             decoded_frames = self.decoder[i](decoded_frames)
         
         # decoded_frames = self.readout(decoded_frames)
@@ -114,15 +117,15 @@ class Decoder(pl.LightningModule):
     
 
 def kullback_leibler_divergence(pred_y, batch_y, tau=0.1, eps=1e-12):
-        B, T, C = pred_y.shape[:3]
-        if T <= 2:  return 0
-        gap_pred_y = (pred_y[:, 1:] - pred_y[:, :-1]).reshape(B, T-1, -1)
-        gap_batch_y = (batch_y[:, 1:] - batch_y[:, :-1]).reshape(B, T-1, -1)
-        softmax_gap_p = nn.functional.softmax(gap_pred_y / tau, -1)
-        softmax_gap_b = nn.functional.softmax(gap_batch_y / tau, -1)
-        loss_gap = softmax_gap_p * \
-            torch.log(softmax_gap_p / (softmax_gap_b + eps) + eps)
-        return loss_gap.mean()
+    B, T, C = pred_y.shape[:3]
+    if T <= 2:  return 0
+    gap_pred_y = (pred_y[:, 1:] - pred_y[:, :-1]).reshape(B, T-1, -1)
+    gap_batch_y = (batch_y[:, 1:] - batch_y[:, :-1]).reshape(B, T-1, -1)
+    softmax_gap_p = nn.functional.softmax(gap_pred_y / tau, -1)
+    softmax_gap_b = nn.functional.softmax(gap_batch_y / tau, -1)
+    loss_gap = softmax_gap_p * \
+        torch.log(softmax_gap_p / (softmax_gap_b + eps) + eps)
+    return loss_gap.mean()
     
 
 class ConvTAU(pl.LightningModule):
@@ -141,7 +144,7 @@ class ConvTAU(pl.LightningModule):
         
     
     def forward(self, frames):
-        frames = frames.unsqueeze(0)
+        frames = frames.float().unsqueeze(0)
         B, T, H, W = frames.shape
         frames = frames.view(B*T, 1, H, W)
         
@@ -228,7 +231,7 @@ class ConvTAU(pl.LightningModule):
         
 
     def configure_optimizers(self):
-        optimizer = optim.AdamW(self.parameters(), lr=self.params.learning_rate, weight_decay=self.params.weight_decay)
+        optimizer = optim.Adam(self.parameters(), lr=self.params.learning_rate, weight_decay=self.params.weight_decay)
         return optimizer
     
     
