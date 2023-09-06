@@ -15,17 +15,17 @@ import matplotlib as plttorch
 class PlEncoderDecoder(pl.LightningModule):
     def __init__(self, k_s, Batch_size, C=1):
         super(PlEncoderDecoder,self).__init__()
-        self.Conv_L = nn.Sequential(nn.Conv2d(C, 20*C, kernel_size=k_s,padding = 3),
+        self.Conv_L = nn.Sequential(nn.Conv2d(C, 4*C, kernel_size=k_s,padding = 3),
                                   nn.ReLU(),
-                                  #nn.BatchNorm2d(20*C)  
+                                  #nn.BatchNorm2d(4*C)  
                                  )
-        self.Conv_XL = nn.Sequential(nn.Conv2d(20*C, 20*C, kernel_size=k_s,padding = 3),
+        self.Conv_XL = nn.Sequential(nn.Conv2d(4*C, 4*C, kernel_size=k_s,padding = 3),
                             nn.ReLU(),
-                            #nn.BatchNorm2d(20*C)  
+                            #nn.BatchNorm2d(4*C)  
                             )
-        self.Conv_S = nn.Sequential(nn.Conv2d(20*C, C, kernel_size=k_s,padding = 3),
+        self.Conv_S = nn.Sequential(nn.Conv2d(4*C, C, kernel_size=k_s,padding = 3),
                     nn.ReLU(),
-                    #nn.BatchNorm2d(20*C)  
+                    #nn.BatchNorm2d(4*C)  
                     )
         self.Conv = nn.Sequential(nn.Conv2d(C, C, kernel_size=k_s,padding = 2),
                                   nn.ReLU(),
