@@ -6,7 +6,7 @@ from torchvision.transforms import ToTensor
 import lightning.pytorch as pl
 
 
-class simpleLSTM(pl.LightningModule):
+class SimpleLSTM(pl.LightningModule):
     def __init__(self):
         super().__init__()
         self.loss_fn = nn.MSELoss();
