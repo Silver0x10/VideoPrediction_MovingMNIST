@@ -23,7 +23,7 @@ class PlEncoderDecoder(pl.LightningModule):
                             nn.ReLU(),
                             #nn.BatchNorm2d(4*C)  
                             )
-        self.Conv_S = nn.Sequential(nn.Conv2d(4*C, C, kernel_size=k_s,padding = 3),
+        self.Conv_S = nn.Sequential(nn.Conv2d(4*C, C, kernel_size=k_s,padding = 2),
                     nn.ReLU(),
                     #nn.BatchNorm2d(4*C)  
                     )
