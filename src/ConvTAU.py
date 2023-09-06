@@ -142,7 +142,6 @@ class ConvTAU(pl.LightningModule):
         
     
     def forward(self, x):
-        # x = x.float().unsqueeze(0)
         B, T, H, W = x.shape
         x = x.view(B*T, 1, H, W)
         
@@ -157,15 +156,17 @@ class ConvTAU(pl.LightningModule):
         out = out.view(B, T, 1, H, W)
         
         return out
-    
-    
-    def _shared_steps(self, batch):
-        x, y = batch['frames'].float(), batch['y'].float().unsqueeze(2)
-        return self(x) 
-    
+
+
+    def single_prediction(self, frames):
+        frames = frames.unsqueeze(0).float()
+        out = self(frames)
+        return out.squeeze(0).squeeze(1).detach()
+
         
-    def training_step(self, batch):
-        out = self._shared_steps(batch)
+    def training_step(self, batch, batch_idx):
+        x, y = batch['frames'].float(), batch['y'].float().unsqueeze(2)
+        out = self(x)
 
         loss, mse_loss, kl_loss = self.loss(out, y)
         self.log("train_loss", loss, on_epoch=True)
@@ -175,8 +176,9 @@ class ConvTAU(pl.LightningModule):
         return loss
     
     
-    def validation_step(self, batch):
-        out = self._shared_steps(batch)
+    def validation_step(self, batch, batch_idx):
+        x, y = batch['frames'].float(), batch['y'].float().unsqueeze(2)
+        out = self(x)
 
         loss, mse_loss, kl_loss = self.loss(out, y)
         self.log("validation_loss", loss, on_epoch=True)
@@ -186,8 +188,9 @@ class ConvTAU(pl.LightningModule):
         return loss
     
     
-    def test_step(self, batch):
-        out = self._shared_steps(batch)
+    def test_step(self, batch, batch_idx):
+        x, y = batch['frames'].float(), batch['y'].float().unsqueeze(2)
+        out = self(x)
 
         loss, mse_loss, kl_loss = self.loss(out, y)
         self.log("test_loss", loss, on_epoch=True)
