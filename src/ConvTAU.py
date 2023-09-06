@@ -132,8 +132,6 @@ class ConvTAU(pl.LightningModule):
     def __init__(self, params: ParamsConvTAU):
         super().__init__()        
         self.params = params
-        # C = params.channels
-        # k_s = params.kernel_size
         
         self.mse = nn.MSELoss() # to focus on intra-frame-level differences
         self.kl_divergence = kullback_leibler_divergence # to focus on inter-frame-level differences
@@ -143,26 +141,8 @@ class ConvTAU(pl.LightningModule):
         self.decoder = Decoder(params)
         
     
-    def forward(self, frames):
-        frames = frames.float().unsqueeze(0)
-        B, T, H, W = frames.shape
-        frames = frames.view(B*T, 1, H, W)
-        
-        h, skip = self.encoder(frames)
-        BT, C_, H_, W_ = h.shape
-        
-        h = h.view(B, T*C_, H_, W_)
-        tau_out = self.tau(h)
-        tau_out = tau_out.view(B*T, C_, H_, W_)
-        
-        out = self.decoder(tau_out, skip)
-        out = out.view(B, T, 1, H, W)
-        
-        return out.squeeze(0)
-    
-        
-    def training_step(self, batch, batch_idx):
-        x, y = batch['frames'].float(), batch['y'].float().unsqueeze(2)
+    def forward(self, x):
+        # x = x.float().unsqueeze(0)
         B, T, H, W = x.shape
         x = x.view(B*T, 1, H, W)
         
@@ -175,6 +155,17 @@ class ConvTAU(pl.LightningModule):
         
         out = self.decoder(tau_out, skip)
         out = out.view(B, T, 1, H, W)
+        
+        return out
+    
+    
+    def _shared_steps(self, batch):
+        x, y = batch['frames'].float(), batch['y'].float().unsqueeze(2)
+        return self(x) 
+    
+        
+    def training_step(self, batch):
+        out = self._shared_steps(batch)
 
         loss, mse_loss, kl_loss = self.loss(out, y)
         self.log("train_loss", loss, on_epoch=True)
@@ -184,20 +175,8 @@ class ConvTAU(pl.LightningModule):
         return loss
     
     
-    def validation_step(self, batch, batch_idx):
-        x, y = batch['frames'].float(), batch['y'].float().unsqueeze(2)
-        B, T, H, W = x.shape
-        x = x.view(B*T, 1, H, W)
-        
-        h, skip = self.encoder(x)
-        BT, C_, H_, W_ = h.shape
-        
-        h = h.view(B, T*C_, H_, W_)
-        tau_out = self.tau(h)
-        tau_out = tau_out.view(B*T, C_, H_, W_)
-        
-        out = self.decoder(tau_out, skip)
-        out = out.view(B, T, 1, H, W)
+    def validation_step(self, batch):
+        out = self._shared_steps(batch)
 
         loss, mse_loss, kl_loss = self.loss(out, y)
         self.log("validation_loss", loss, on_epoch=True)
@@ -207,20 +186,8 @@ class ConvTAU(pl.LightningModule):
         return loss
     
     
-    def test_step(self, batch, batch_idx):
-        x, y = batch['frames'].float(), batch['y'].float().unsqueeze(2)
-        B, T, H, W = x.shape
-        x = x.view(B*T, 1, H, W)
-        
-        h, skip = self.encoder(x)
-        BT, C_, H_, W_ = h.shape
-        
-        h = h.view(B, T*C_, H_, W_)
-        tau_out = self.tau(h)
-        tau_out = tau_out.view(B*T, C_, H_, W_)
-        
-        out = self.decoder(tau_out, skip)
-        out = out.view(B, T, 1, H, W)
+    def test_step(self, batch):
+        out = self._shared_steps(batch)
 
         loss, mse_loss, kl_loss = self.loss(out, y)
         self.log("test_loss", loss, on_epoch=True)
