@@ -11,6 +11,7 @@ shared_params = {
 class ParamsSimpleLSTM():
     def __init__(self):
         self.frames_per_sample = shared_params['MOVING_MNIST_INPUT_FRAMES']
+        self.frames_to_predict = 10
 
         self.batch_size = 16
         self.training_epochs = 5
