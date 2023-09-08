@@ -61,7 +61,7 @@ class SimpleLSTM(pl.LightningModule):
         out, _ = self(x)
 
         loss = self.loss(out, y)
-        self.log("valid_loss", loss, on_epoch=True)
+        self.log("validation_loss", loss, on_epoch=True)
         return loss
     
     def test_step(self, batch, batch_idx):
