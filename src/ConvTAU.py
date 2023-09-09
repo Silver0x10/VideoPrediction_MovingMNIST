@@ -108,7 +108,7 @@ class Decoder(pl.LightningModule):
         decoded_frames = x
 
         for i in range(len(self.decoder)):
-            # if i==7: decoded_frames = torch.add(decoded_frames, skip)
+            if i==7: decoded_frames = torch.add(decoded_frames, skip)
             decoded_frames = self.decoder[i](decoded_frames)
         
         # decoded_frames = self.readout(decoded_frames)
