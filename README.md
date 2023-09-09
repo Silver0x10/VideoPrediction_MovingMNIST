@@ -24,7 +24,7 @@ Training sessions data available [here](https://wandb.ai/worst_dream_team/DeepLe
 
 ### SimpleLSTM
 
-<div align="center"> <img src="out/simpeLSTM_comparison.png" width="70%"/> </div>
+<div align="center"> <img src="out/simpleLSTM_comparison.png" width="70%"/> </div>
 
 ### Conv+LSTM
 
