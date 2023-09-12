@@ -9,10 +9,13 @@ import lightning.pytorch as pl
 class SimpleLSTM(pl.LightningModule):
     def __init__(self, params):
         super().__init__()
-        self.loss_fn = nn.MSELoss();
+        self.loss_fn = nn.MSELoss()
         self.relu = nn.ReLU()
         self.frames_to_predict = params.frames_to_predict
         
+        # self.encoder = nn.Sequential(nn.Linear(4096, 1024), self.relu)
+        # self.lstm = nn.LSTM(1024, 512, bidirectional=True)     
+        # self.decoder = nn.Sequential(nn.Linear(1024, 4096), self.relu, nn.Unflatten(1, (64,64)))
         self.encoder = nn.Sequential(nn.Linear(4096, 2048), self.relu, nn.Linear(2048, 2048), self.relu)
         self.lstm = nn.LSTM(2048, 1024, bidirectional=True)     
         self.decoder = nn.Sequential(nn.Linear(2048, 2048), self.relu, nn.Linear(2048, 4096), self.relu, nn.Unflatten(1, (64,64)))
@@ -51,8 +54,9 @@ class SimpleLSTM(pl.LightningModule):
         out, _ = self(x)
 
         loss = self.loss(out, y)
-        self.log("mse", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log("train_loss", loss, on_epoch=True)
+        print(loss)
+        # self.log("mse", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        # self.log("train_loss", loss, on_epoch=True)
         return loss
     
     def validation_step(self, batch, batch_idx):
@@ -75,7 +79,7 @@ class SimpleLSTM(pl.LightningModule):
         
     
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=0.01)
+        optimizer = optim.AdamW(self.parameters(), lr=0.01)
         return optimizer
     
     def loss(self, pred, y):
