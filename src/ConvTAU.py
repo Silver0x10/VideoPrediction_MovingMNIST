@@ -3,7 +3,7 @@ import torch
 from torch import optim, nn
 import lightning.pytorch as pl
 
-from src.parameters import ParamsConvTAU
+from src.parameters import params_ConvTAU
 
 # Code taken/adapted from: https://github.com/chengtan9907/OpenSTL 
     
@@ -228,18 +228,18 @@ class MidMetaNet(nn.Module):
     
 
 class ConvTAU(pl.LightningModule):
-    def __init__(self, params: ParamsConvTAU):
+    def __init__(self, params):
         super().__init__()
         self.params = params
         self.mse = nn.MSELoss() # to focus on intra-frame-level differences
 
-        T, C, H, W = params.in_shape  # T is pre_seq_length
-        H, W = int(H / 2**(params.N_S/2)), int(W / 2**(params.N_S/2))  # downsample 1 / 2**(N_S/2)
+        T, C, H, W = params['in_shape']  # T is pre_seq_length
+        H, W = int(H / 2**(params['N_S']/2)), int(W / 2**(params['N_S']/2))  # downsample 1 / 2**(N_S/2)
         
-        self.enc = Encoder(C, params.hid_S, params.N_S, params.spatio_kernel_enc)
-        self.dec = Decoder(params.hid_S, C, params.N_S, params.spatio_kernel_dec)
+        self.enc = Encoder(C, params['hid_S'], params['N_S'], params['spatio_kernel_enc'])
+        self.dec = Decoder(params['hid_S'], C, params['N_S'], params['spatio_kernel_dec'])
 
-        self.hid = MidMetaNet(T*params.hid_S, params.hid_T, params.N_T, input_resolution=(H, W), mlp_ratio=params.mlp_ratio, drop=params.drop, drop_path=params.drop_path)
+        self.hid = MidMetaNet(T*params['hid_S'], params['hid_T'], params['N_T'], input_resolution=(H, W), mlp_ratio=params['mlp_ratio'], drop=params['drop'], drop_path=params['drop_path'])
 
     def forward(self, x):
         # out =  self.model(x.unsqueeze(2))
@@ -298,7 +298,7 @@ class ConvTAU(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = optim.AdamW(self.parameters(), lr=self.params.learning_rate, weight_decay=self.params.weight_decay)
+        optimizer = optim.AdamW(self.parameters(), lr=self.params['learning_rate'], weight_decay=self.params['weight_decay'])
         return optimizer
 
     def kullback_leibler_divergence(self, pred_y, batch_y, tau=0.1, eps=1e-12): # to focus on inter-frame-level differences
@@ -314,6 +314,6 @@ class ConvTAU(pl.LightningModule):
 
     def loss(self, pred, y):
         mse_loss = self.mse(pred, y)
-        kl_loss = self.params.kl_divergence_weight * self.kullback_leibler_divergence(pred, y)
+        kl_loss = self.params['kl_divergence_weight'] * self.kullback_leibler_divergence(pred, y)
         loss = mse_loss + kl_loss
         return (loss, mse_loss, kl_loss)
