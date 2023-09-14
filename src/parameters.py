@@ -36,15 +36,15 @@ params_ConvTAU = {
     'in_shape' : (shared_params['MOVING_MNIST_INPUT_FRAMES'], shared_params['CHANNELS'], shared_params['HEIGHT'], shared_params['WIDTH']),
 
     # Model parameters
-    'hid_S' : 16, # hidden spatial representation size (encoder output, decoder input)
-    'hid_T' : 256, # hidden temporal representation size (internal to TAU module)
+    'hid_S' : 32, #16, # hidden spatial representation size (encoder output, decoder input)
+    'hid_T' : 128, #256, # hidden temporal representation size (internal to TAU module)
     'N_S' : 4, # number of spatial modules inside encoder and decoder
-    'N_T' : 4, # number of temporal modules inside the middle layer
+    'N_T' : 8, #4, # number of temporal modules inside the middle layer
     'mlp_ratio' : 8., # TODO understand what does it means exacly
     'drop' : 0.0, # TODO not used, remove
     'drop_path' : 0.0, # TODO not used, remove
     'spatio_kernel_enc' : 3, # kernel size of the encoder conv layers
-    'spatio_kernel_dec' : 3, # kernel size of the decoder conv layers
+    'spatio_kernel_dec' : 5, #3, # kernel size of the decoder conv layers
     # self.act_inplace = True
     
     # Training parameters
