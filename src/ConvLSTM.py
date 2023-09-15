@@ -155,7 +155,7 @@ class EncoderDecoder(pl.LightningModule):
         h_t2, c_t2 = self.enc2.init_hidden(batch_size=b_s, image_size=(h, w))
         h_t3, c_t3 = self.dec1.init_hidden(batch_size=b_s, image_size=(h, w))
         h_t4, c_t4 = self.dec2.init_hidden(batch_size=b_s, image_size=(h, w))
-        #nn.init.orthogonal_(self.conv_3D.weight)
+        nn.init.orthogonal_(self.conv_3D.weight)
 
         outputs = self.autoencoder(x, frs, n_p, h_t1, c_t1, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4)
         return outputs
@@ -192,7 +192,7 @@ class EncoderDecoder(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-3, weight_decay=1e-5)
+        optimizer = optim.Adam(self.parameters(), lr=1e-4)
         #optimizer = optim.RMSprop(self.parameters(), lr=0.01)#, weight_decay=1e-5)
         return optimizer
     
