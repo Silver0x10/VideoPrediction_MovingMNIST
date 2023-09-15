@@ -97,13 +97,14 @@ class EncoderDecoder(pl.LightningModule):
                                  bias=True)
 
         self.conv_3D = nn.Conv3d(in_channels=n_f,
-                                 out_channels=n_ch,
+                                 out_channels=1,
                                  kernel_size=(1,k_sz,k_sz),
-                                 padding=self.padding
+                                 padding=(0,1,1)
                                  )
         
     def autoencoder(self, x, frames, n_predictions, h_t1, c_t1, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4):
-
+         
+        outputs = []
         #Encoder
         for i in range(frames):
 
@@ -116,26 +117,41 @@ class EncoderDecoder(pl.LightningModule):
         encoder_output = h_t2
 
         #Decoder
-        for i in range(n_predictions):
+        # for i in range(n_predictions):
 
-            h_t3,c_t3 = self.dec1(input_tensor = encoder_output,
-                                  cur_state = [h_t3,c_t3]
-                                  )
+        #     h_t3,c_t3 = self.dec1(input_tensor = encoder_output,
+        #                           cur_state = [h_t3,c_t3]
+        #                           )
 
-            h_t4,c_t4 = self.dec2(input_tensor =  h_t3,
-                                  cur_state = [h_t4,c_t4]
-                                  )
-            decoder_output = torch.unsqueeze(h_t4,2) #Should be of dim [b_s, 1, n_f, w, h]
+        #     h_t4,c_t4 = self.dec2(input_tensor =  h_t3,
+        #                           cur_state = [h_t4,c_t4]
+        #                           )
+        #     decoder_output = torch.unsqueeze(h_t4,2) #Should be of dim [b_s, 1, n_f, w, h]
 
-            if i == 0:
-                seq = decoder_output
-            else:
-                seq = torch.cat((seq, decoder_output), 2)
-        #seq dovrebbe avere dim = [b_s, n_features, n_p, h, w] ([16,64,10,64,64])
-        #Lui fa conv3D invertendo in seconda posizione n_f(=64) e n_p(=10). Provo a fare così ma non mi piace.
-        #In caso cambio.
-        outputs = self.conv_3D(seq)
+        #     if i == 0:
+        #         seq = decoder_output
+        #     else:
+        #         seq = torch.cat((seq, decoder_output), 2)
+        # #seq dovrebbe avere dim = [b_s, n_features, n_p, h, w] ([16,64,10,64,64])
+        # #Lui fa conv3D invertendo in seconda posizione n_f(=64) e n_p(=10). Provo a fare così ma non mi piace.
+        # #In caso cambio.
+        # outputs = self.conv_3D(seq)
+        # outputs = torch.nn.Sigmoid()(outputs)
+
+        for t in range(n_predictions):
+            h_t3, c_t3 = self.dec1(input_tensor=encoder_output,
+                                                 cur_state=[h_t3, c_t3])  # we could concat to provide skip conn here
+            h_t4, c_t4 = self.dec2(input_tensor=h_t3,
+                                                 cur_state=[h_t4, c_t4])  # we could concat to provide skip conn here
+            encoder_vector = h_t4
+            outputs += [h_t4]  # predictions
+
+        outputs = torch.stack(outputs, 1)
+        outputs = outputs.permute(0, 2, 1, 3, 4)
+        outputs = self.conv_3D(outputs)
         outputs = torch.nn.Sigmoid()(outputs)
+
+
         return outputs
     
     def forward(self, x, n_p = 10):       
@@ -176,7 +192,8 @@ class EncoderDecoder(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y = batch['frames'], batch['y'].float()
         #print('VALIDATION: size of x and y= ',x.size(), y.size())
-        out = self(x)
+        out = self(x).squeeze()
+
         #print('VALIDATION: size of out = ',out.size())
         loss = self.loss(out, y)
         self.log("validation_loss", loss, on_epoch=True)
@@ -185,7 +202,7 @@ class EncoderDecoder(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         x, y = batch['frames'], batch['y'].float()
 
-        out = self(x)
+        out = self(x).squeeze()
 
         loss = self.loss(out, y)
         self.log("test_loss", loss, on_epoch=True)
