@@ -74,7 +74,7 @@ class EncoderDecoder(pl.LightningModule):
     def __init__(self, n_f, n_ch, k_sz):
         super(EncoderDecoder,self).__init__()
         self.padding = (0, k_sz//2, k_sz//2)
-        self.loss_fn = nn.MSELoss(reduction='mean')
+        self.loss_fn = nn.MSELoss()
 
         self.enc1 = ConvLSTMCell(input_dim=n_ch,
                                  hidden_dim=n_f,
@@ -97,15 +97,14 @@ class EncoderDecoder(pl.LightningModule):
                                  bias=True)
 
         self.conv_3D = nn.Conv3d(in_channels=n_f,
-                                 out_channels=1,
+                                 out_channels=n_ch,
                                  kernel_size=(1,k_sz,k_sz),
-                                 padding=(0,1,1)
+                                 padding=self.padding
                                  )
         
     def autoencoder(self, x, frames, n_predictions, h_t1, c_t1, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4):
-         
-        outputs = []
-        #Encoder
+
+        #Encoder  
         for i in range(frames):
 
             h_t1,c_t1 = self.enc1(input_tensor =  x[:,i,:,:,:],
@@ -117,41 +116,26 @@ class EncoderDecoder(pl.LightningModule):
         encoder_output = h_t2
 
         #Decoder
-        # for i in range(n_predictions):
+        for i in range(n_predictions):
 
-        #     h_t3,c_t3 = self.dec1(input_tensor = encoder_output,
-        #                           cur_state = [h_t3,c_t3]
-        #                           )
+            h_t3,c_t3 = self.dec1(input_tensor = encoder_output,
+                                  cur_state = [h_t3,c_t3]
+                                  )
 
-        #     h_t4,c_t4 = self.dec2(input_tensor =  h_t3,
-        #                           cur_state = [h_t4,c_t4]
-        #                           )
-        #     decoder_output = torch.unsqueeze(h_t4,2) #Should be of dim [b_s, 1, n_f, w, h]
+            h_t4,c_t4 = self.dec2(input_tensor =  h_t3,
+                                  cur_state = [h_t4,c_t4]
+                                  )
+            decoder_output = torch.unsqueeze(h_t4,2) #Should be of dim [b_s, 1, n_f, w, h]
 
-        #     if i == 0:
-        #         seq = decoder_output
-        #     else:
-        #         seq = torch.cat((seq, decoder_output), 2)
-        # #seq dovrebbe avere dim = [b_s, n_features, n_p, h, w] ([16,64,10,64,64])
-        # #Lui fa conv3D invertendo in seconda posizione n_f(=64) e n_p(=10). Provo a fare così ma non mi piace.
-        # #In caso cambio.
-        # outputs = self.conv_3D(seq)
-        # outputs = torch.nn.Sigmoid()(outputs)
-
-        for t in range(n_predictions):
-            h_t3, c_t3 = self.dec1(input_tensor=encoder_output,
-                                                 cur_state=[h_t3, c_t3])  # we could concat to provide skip conn here
-            h_t4, c_t4 = self.dec2(input_tensor=h_t3,
-                                                 cur_state=[h_t4, c_t4])  # we could concat to provide skip conn here
-            encoder_vector = h_t4
-            outputs += [h_t4]  # predictions
-
-        outputs = torch.stack(outputs, 1)
-        outputs = outputs.permute(0, 2, 1, 3, 4)
-        outputs = self.conv_3D(outputs)
+            if i == 0:
+                seq = decoder_output
+            else:
+                seq = torch.cat((seq, decoder_output), 2)
+        #seq dovrebbe avere dim = [b_s, n_features, n_p, h, w] ([16,64,10,64,64])
+        #Lui fa conv3D invertendo in seconda posizione n_f(=64) e n_p(=10). Provo a fare così ma non mi piace.
+        #In caso cambio.
+        outputs = self.conv_3D(seq)
         outputs = torch.nn.Sigmoid()(outputs)
-
-
         return outputs
     
     def forward(self, x, n_p = 10):       
@@ -177,32 +161,84 @@ class EncoderDecoder(pl.LightningModule):
         return outputs
     
 
-    def training_step(self, batch, batch_idx):
-        x, y = batch['frames'], batch['y'].float()
-        #print('TRAINING: size of x and y= ',x.size(), y.size())
-        out= self(x)
+    # def training_step(self, batch, batch_idx):
+    #     x, y = batch['frames'].float()/255.0, batch['y'].float()/255.0
+    #     #print('LE GROUNDTRUTH HANNO QUESTI VALORI',x[0,0,:,:],y[0,0,:,:])
+    #     #print('TRAINING: type dei frame', x.dtype)
+    #     out= self(x).squeeze()
+    #     #print('LE PREDICTION HANNO QUESTI VALORI',out[0,0,:,:])
+    #     #print('IL TYPE DELLE IMMAGINI', out.dtype)
         
-        #print('TRAINING: size of out = ',out.size())
-        loss = self.loss(out, y)
+    #     #print('LA DIFF. TRA I DUE E',torch.sub(out,)[5,0,:,:])
+
+
+    #     #print('TRAINING: size of out = ',out.size())
+    #     #print('Y e OUT hanno dimensione', y.size(),out.size())
+    #     loss = self.loss(y,out)
+    #     #print('LOSS',loss)
+    #     self.log("mse", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+    #     self.log("train_loss", loss, on_epoch=True)
+    #     return loss
+    
+
+    # def validation_step(self, batch, batch_idx):
+    #     x, y = batch['frames'].float()/255.0, batch['y'].float()/255.0
+    #     x = x/255.0
+    #     #print('VALIDATION: size of x and y= ',x.size(), y.size())
+    #     out = self(x)
+    #     #print('VALIDATION: size of out = ',out.size())
+    #     loss = self.loss(out, y)
+    #     self.log("validation_loss", loss, on_epoch=True)
+    #     return loss
+
+    # def test_step(self, batch, batch_idx):
+    #     x, y = batch['frames'], batch['y'].float()
+    #     x = x/255.0
+
+    #     out = self(x)*255.0
+
+    #     loss = self.loss(out, y)
+    #     self.log("test_loss", loss, on_epoch=True)
+    #     return loss
+
+
+
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch['frames'].float()/255.0, batch['y'].float()
+        out= self(x).squeeze()*255.0
+        # print('TRAINING: type dei frame x', x.dtype)
+        # print('TRAINING: type dei groundtruth y', y.dtype)
+        # print('TRAINING: type degli out', out.dtype)        
+
+        # for i in range(64):
+        #     for j in range(64):
+        #         if y[0,0,i,j]!= 0. :
+
+        #             print('CARRAMBA',y[0,0,i,j])
+    
+
+        #print('LA DIFF. TRA I DUE E',torch.sub(out,y)[0,0,20:40,20:40])
+        loss = self.loss(y,out)
+        print('LOSS',loss)
         self.log("mse", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self.log("train_loss", loss, on_epoch=True)
         return loss
     
 
     def validation_step(self, batch, batch_idx):
-        x, y = batch['frames'], batch['y'].float()
-        #print('VALIDATION: size of x and y= ',x.size(), y.size())
-        out = self(x).squeeze()
+        x, y = batch['frames'].float()/255.0, batch['y'].float()
+        out= self(x).squeeze()*255.0
 
-        #print('VALIDATION: size of out = ',out.size())
-        loss = self.loss(out, y)
+        loss = self.loss(y,out)
         self.log("validation_loss", loss, on_epoch=True)
         return loss
 
     def test_step(self, batch, batch_idx):
         x, y = batch['frames'], batch['y'].float()
+        x = x/255.0
 
-        out = self(x).squeeze()
+        out = self(x).squeeze()*255.0
 
         loss = self.loss(out, y)
         self.log("test_loss", loss, on_epoch=True)
