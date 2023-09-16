@@ -73,47 +73,53 @@ class ConvLSTMCell(pl.LightningModule):
 class EncoderDecoder(pl.LightningModule):
     def __init__(self, n_f, n_ch, k_sz):
         super(EncoderDecoder,self).__init__()
-        self.padding = (0, k_sz//2, k_sz//2)
+        self.padding =  k_sz//2
         self.loss_fn = nn.MSELoss()
 
-        self.enc1 = ConvLSTMCell(input_dim=n_ch,
-                                 hidden_dim=n_f,
+        self.enc1 = ConvLSTMCell(input_dim=n_ch*5,
+                                 hidden_dim=n_f//2,
                                  kernel_size=k_sz,
                                  bias=True)
 
-        self.enc2 = ConvLSTMCell(input_dim=n_f,
+        self.enc2 = ConvLSTMCell(input_dim=n_f//2,
                                  hidden_dim=n_f,
                                  kernel_size=k_sz,
                                  bias=True) 
 
         self.dec1 = ConvLSTMCell(input_dim=n_f,
-                                 hidden_dim=n_f,
+                                 hidden_dim=n_f//2,
                                  kernel_size=k_sz,
                                  bias=True) 
 
-        self.dec2 = ConvLSTMCell(input_dim=n_f,
-                                 hidden_dim=n_f,
+        self.dec2 = ConvLSTMCell(input_dim=n_f//2,
+                                 hidden_dim=n_ch*5,
                                  kernel_size=k_sz,
                                  bias=True)
 
-        self.conv_3D = nn.Conv3d(in_channels=n_f,
-                                 out_channels=n_ch,
-                                 kernel_size=(1,k_sz,k_sz),
+        self.conv = nn.Conv2d(in_channels=n_ch,
+                                 out_channels=n_ch*5,
+                                 kernel_size=k_sz,
                                  padding=self.padding
                                  )
+        self.deconv = nn.Conv2d(in_channels = n_ch*5,
+                                out_channels= n_ch,
+                                kernel_size=k_sz,
+                                padding=self.padding)
         
     def autoencoder(self, x, frames, n_predictions, h_t1, c_t1, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4):
 
         #Encoder  
         for i in range(frames):
-
-            h_t1,c_t1 = self.enc1(input_tensor =  x[:,i,:,:,:],
+            
+            x_conved = self.conv(x[:,i,:,:,:])
+            h_t1,c_t1 = self.enc1(input_tensor =  x_conved,
                                   cur_state = [h_t1,c_t1]
                                   )
             h_t2,c_t2 = self.enc2(input_tensor = h_t1,
                                   cur_state = [h_t2,c_t2]
                                   )
         encoder_output = h_t2
+        skip_layer = x_conved
 
         #Decoder
         for i in range(n_predictions):
@@ -121,21 +127,44 @@ class EncoderDecoder(pl.LightningModule):
             h_t3,c_t3 = self.dec1(input_tensor = encoder_output,
                                   cur_state = [h_t3,c_t3]
                                   )
-
+                
             h_t4,c_t4 = self.dec2(input_tensor =  h_t3,
                                   cur_state = [h_t4,c_t4]
                                   )
-            decoder_output = torch.unsqueeze(h_t4,2) #Should be of dim [b_s, 1, n_f, w, h]
-
+            #Here i add back the skip layer
+            last_layer = self.deconv(torch.add(skip_layer,h_t4)) #Should be of dim [b_s, 5, w, h]
+            decoder_output=last_layer
+            #Create a new skip layer
+            skip_layer = self.conv(last_layer)
             if i == 0:
-                seq = decoder_output
+                seq = decoder_output.unsqueeze(1)
+                #print('SEQ SIZE =',seq.size())
             else:
-                seq = torch.cat((seq, decoder_output), 2)
+                seq = torch.cat((seq, decoder_output.unsqueeze(1)), 2)
+                #print('SEQ SIZE =',seq.size())
         #seq dovrebbe avere dim = [b_s, n_features, n_p, h, w] ([16,64,10,64,64])
         #Lui fa conv3D invertendo in seconda posizione n_f(=64) e n_p(=10). Provo a fare così ma non mi piace.
         #In caso cambio.
-        outputs = self.conv_3D(seq)
-        outputs = torch.nn.Sigmoid()(outputs)
+        #outputs = self.conv_3D(seq)
+        #print('CIAO SONO GIACOMO',seq[0,0,5,20:40,20:40])
+        #print('MAX of pre sifmoid',torch.max(seq[0,0,5,:,:]))
+
+
+
+        # print('studio del output.Vediamo se ci sono valori maggiori di 1')
+        # for i in range(16):
+        #     indici_positivi = (seq[i,0,0,:,:] > 1).nonzero()
+
+        #     # Stampa i valori maggiori di zero
+        #     for indice in indici_positivi:
+        #         riga, colonna = indice.tolist()
+        #         valore = seq[i,0,0,riga, colonna].item()
+        #         print(f"Valore positivo trovato: {valore} alla posizione [riga {riga}, colonna {colonna}]")
+
+
+        outputs = torch.nn.Sigmoid()(seq)
+        #print('E ORA SONO COSI',outputs[0,0,5,20:40,20:40])
+        #print('MAX of output',torch.max(outputs[0,0,5,:,:]))
         return outputs
     
     def forward(self, x, n_p = 10):       
@@ -155,57 +184,14 @@ class EncoderDecoder(pl.LightningModule):
         h_t2, c_t2 = self.enc2.init_hidden(batch_size=b_s, image_size=(h, w))
         h_t3, c_t3 = self.dec1.init_hidden(batch_size=b_s, image_size=(h, w))
         h_t4, c_t4 = self.dec2.init_hidden(batch_size=b_s, image_size=(h, w))
-        nn.init.orthogonal_(self.conv_3D.weight)
+        #nn.init.orthogonal_(self.conv_3D.weight)
 
         outputs = self.autoencoder(x, frs, n_p, h_t1, c_t1, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4)
         return outputs
     
 
-    # def training_step(self, batch, batch_idx):
-    #     x, y = batch['frames'].float()/255.0, batch['y'].float()/255.0
-    #     #print('LE GROUNDTRUTH HANNO QUESTI VALORI',x[0,0,:,:],y[0,0,:,:])
-    #     #print('TRAINING: type dei frame', x.dtype)
-    #     out= self(x).squeeze()
-    #     #print('LE PREDICTION HANNO QUESTI VALORI',out[0,0,:,:])
-    #     #print('IL TYPE DELLE IMMAGINI', out.dtype)
-        
-    #     #print('LA DIFF. TRA I DUE E',torch.sub(out,)[5,0,:,:])
-
-
-    #     #print('TRAINING: size of out = ',out.size())
-    #     #print('Y e OUT hanno dimensione', y.size(),out.size())
-    #     loss = self.loss(y,out)
-    #     #print('LOSS',loss)
-    #     self.log("mse", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-    #     self.log("train_loss", loss, on_epoch=True)
-    #     return loss
-    
-
-    # def validation_step(self, batch, batch_idx):
-    #     x, y = batch['frames'].float()/255.0, batch['y'].float()/255.0
-    #     x = x/255.0
-    #     #print('VALIDATION: size of x and y= ',x.size(), y.size())
-    #     out = self(x)
-    #     #print('VALIDATION: size of out = ',out.size())
-    #     loss = self.loss(out, y)
-    #     self.log("validation_loss", loss, on_epoch=True)
-    #     return loss
-
-    # def test_step(self, batch, batch_idx):
-    #     x, y = batch['frames'], batch['y'].float()
-    #     x = x/255.0
-
-    #     out = self(x)*255.0
-
-    #     loss = self.loss(out, y)
-    #     self.log("test_loss", loss, on_epoch=True)
-    #     return loss
-
-
-
-
     def training_step(self, batch, batch_idx):
-        x, y = batch['frames'].float()/255.0, batch['y'].float()
+        x, y = batch['frames'].float(), batch['y'].float()
         out= self(x).squeeze()*255.0
         # print('TRAINING: type dei frame x', x.dtype)
         # print('TRAINING: type dei groundtruth y', y.dtype)
@@ -220,14 +206,14 @@ class EncoderDecoder(pl.LightningModule):
 
         #print('LA DIFF. TRA I DUE E',torch.sub(out,y)[0,0,20:40,20:40])
         loss = self.loss(y,out)
-        print('LOSS',loss)
+        #print('LOSS',loss)
         self.log("mse", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self.log("train_loss", loss, on_epoch=True)
         return loss
     
 
     def validation_step(self, batch, batch_idx):
-        x, y = batch['frames'].float()/255.0, batch['y'].float()
+        x, y = batch['frames'].float(), batch['y'].float()
         out= self(x).squeeze()*255.0
 
         loss = self.loss(y,out)
@@ -235,7 +221,7 @@ class EncoderDecoder(pl.LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
-        x, y = batch['frames'], batch['y'].float()
+        x, y = batch['frames'].float(), batch['y'].float()
         x = x/255.0
 
         out = self(x).squeeze()*255.0
@@ -245,7 +231,7 @@ class EncoderDecoder(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-4)
+        optimizer = optim.Adam(self.parameters(), lr=1e-3)
         #optimizer = optim.RMSprop(self.parameters(), lr=0.01)#, weight_decay=1e-5)
         return optimizer
     
