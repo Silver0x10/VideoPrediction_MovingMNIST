@@ -269,6 +269,8 @@ class ConvTAU(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch['frames'].float(), batch['y'].float().unsqueeze(2)
+        x = x / 255.0
+        y = y / 255.0
         out = self(x)
 
         loss, mse_loss, kl_loss = self.loss(out, y)
@@ -279,6 +281,8 @@ class ConvTAU(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch['frames'].float(), batch['y'].float().unsqueeze(2)
+        x = x / 255.0
+        y = y / 255.0
         out = self(x)
 
         loss, mse_loss, kl_loss = self.loss(out, y)
@@ -289,12 +293,18 @@ class ConvTAU(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         x, y = batch['frames'].float(), batch['y'].float().unsqueeze(2)
+        x = x / 255.0
+        y = y / 255.0
         out = self(x)
-
         loss, mse_loss, kl_loss = self.loss(out, y)
         self.log("test_loss", loss, on_epoch=True)
         self.log("test_mse_loss", mse_loss, on_epoch=True)
         self.log("test_kl_loss", kl_loss, on_epoch=True)
+        
+        out = out * 255.0
+        y = y * 255.0
+        loss_not_normalized, _, _ = self.loss(out, y)
+        self.log("test_loss_notNormalized", loss_not_normalized, on_epoch=True)
         return loss
 
     def configure_optimizers(self):
