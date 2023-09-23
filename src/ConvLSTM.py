@@ -77,21 +77,21 @@ class EncoderDecoder(pl.LightningModule):
         self.loss_fn = nn.MSELoss()
 
         self.enc1 = ConvLSTMCell(input_dim=n_f,
-                                 hidden_dim=n_f//2,
+                                 hidden_dim=n_f,
                                  kernel_size=k_sz,
                                  bias=True)
 
-        self.enc2 = ConvLSTMCell(input_dim=n_f//2,
-                                 hidden_dim=n_f//4,
+        self.enc2 = ConvLSTMCell(input_dim=n_f,
+                                 hidden_dim=n_f,
                                  kernel_size=k_sz,
                                  bias=True) 
 
-        self.dec1 = ConvLSTMCell(input_dim=n_f//4,
-                                 hidden_dim=n_f//2,
+        self.dec1 = ConvLSTMCell(input_dim=n_f,
+                                 hidden_dim=n_f,
                                  kernel_size=k_sz,
                                  bias=True) 
 
-        self.dec2 = ConvLSTMCell(input_dim=n_f//2,
+        self.dec2 = ConvLSTMCell(input_dim=n_f,
                                  hidden_dim=n_f,
                                  kernel_size=k_sz,
                                  bias=True)
@@ -101,7 +101,7 @@ class EncoderDecoder(pl.LightningModule):
                                  kernel_size=k_sz,
                                  padding=self.padding),
                                  nn.BatchNorm2d(n_f//2),
-                                 nn.ReLU()
+                                 nn.GELU()
                                     )
         
         self.conv2 = nn.Sequential(nn.Conv2d(in_channels=n_f//2,
@@ -109,7 +109,7 @@ class EncoderDecoder(pl.LightningModule):
                                  kernel_size=k_sz,
                                  padding=self.padding),
                                  nn.BatchNorm2d(n_f),
-                                 nn.ReLU()
+                                 nn.GELU()
                                     )
                                  
         
@@ -118,15 +118,14 @@ class EncoderDecoder(pl.LightningModule):
                                  kernel_size=k_sz,
                                  padding=self.padding),
                                  nn.BatchNorm2d(n_f//2),
-                                 nn.ReLU()
+                                 nn.GELU()
                                     )
         
         self.deconv2 = nn.Sequential(nn.Conv2d(in_channels = n_f//2,
                                 out_channels= n_ch,
                                 kernel_size=k_sz,
                                 padding=self.padding),
-                                 nn.BatchNorm2d(n_ch),
-                                 nn.ReLU()
+                                 nn.Tanh()
                                     )
         
     def autoencoder(self, x, frames, n_predictions, h_t1, c_t1, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4):
@@ -165,22 +164,30 @@ class EncoderDecoder(pl.LightningModule):
             h_t3,c_t3 = self.dec1(input_tensor = h_t2, #32
                                   cur_state = [h_t3,c_t3] 
                                   )
-                
-            h_t4,c_t4 = self.dec2(input_tensor =  torch.add(h_t3,skip_C),  #64
+            #print('h_t3',h_t3[0,0,20:40,20:40])                
+            h_t4,c_t4 = self.dec2(input_tensor = h_t3,  #64
                                   cur_state = [h_t4,c_t4]
                                   )
-            x_deconv_1 = self.deconv1(torch.add(h_t4,skip_B)) #32
-            x_deconv_2 = self.deconv2(torch.add(x_deconv_1,skip_A)) #1
+            #print('h_t4',h_t4[0,0,20:40,20:40])
 
-            out = x_deconv_2
+            x_deconv_1 = self.deconv1(torch.add(h_t4,skip_B)) #32
+            #print('x_deconv_1',x_deconv_1[0,0,20:40,20:40])
+
+            x_deconv_2 = self.deconv2(torch.add(x_deconv_1,skip_A)) #1
+            #print('x_deconv_2',x_deconv_2[0,0,20:40,20:40])
+
+            out = x_deconv_2*10
             
             if i == 0:
                 seq = out.unsqueeze(1)
                 #print('SEQ SIZE =',seq.size())
             else:
                 seq = torch.cat((seq, out.unsqueeze(1)), 2)
+
         seq = seq.squeeze()
+        #print('SEQ PRIMA',seq[0,0,20:30,20:30])
         outputs = torch.nn.Sigmoid()(seq)*255.0
+        #print('SEQ DOPO',outputs[0,0,20:30,20:30])
         return outputs
     
     def forward(self, x, n_p = 10):       
@@ -235,7 +242,7 @@ class EncoderDecoder(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = optim.Adam(self.parameters(), lr=3e-4)
         #optimizer = optim.RMSprop(self.parameters(), lr=0.01)#, weight_decay=1e-5)
         return optimizer
     
