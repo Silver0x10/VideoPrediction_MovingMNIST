@@ -11,7 +11,7 @@ from ipywidgets import widgets, HBox
 from IPython.display import display
 import matplotlib as plttorch
 
-
+dev = 'cuda:0'
 
 class ConvLSTMCell(pl.LightningModule):
 
@@ -76,95 +76,111 @@ class EncoderDecoder(pl.LightningModule):
         self.padding =  k_sz//2
         self.loss_fn = nn.MSELoss()
 
-        self.enc1 = ConvLSTMCell(input_dim=n_ch*5,
+        self.enc1 = ConvLSTMCell(input_dim=n_f,
                                  hidden_dim=n_f//2,
                                  kernel_size=k_sz,
                                  bias=True)
 
         self.enc2 = ConvLSTMCell(input_dim=n_f//2,
-                                 hidden_dim=n_f,
+                                 hidden_dim=n_f//4,
                                  kernel_size=k_sz,
                                  bias=True) 
 
-        self.dec1 = ConvLSTMCell(input_dim=n_f,
+        self.dec1 = ConvLSTMCell(input_dim=n_f//4,
                                  hidden_dim=n_f//2,
                                  kernel_size=k_sz,
                                  bias=True) 
 
         self.dec2 = ConvLSTMCell(input_dim=n_f//2,
-                                 hidden_dim=n_ch*5,
+                                 hidden_dim=n_f,
                                  kernel_size=k_sz,
                                  bias=True)
 
-        self.conv = nn.Conv2d(in_channels=n_ch,
-                                 out_channels=n_ch*5,
+        self.conv1 = nn.Sequential(nn.Conv2d(in_channels=n_ch,
+                                 out_channels=n_f//2,
                                  kernel_size=k_sz,
-                                 padding=self.padding
-                                 )
-        self.deconv = nn.Conv2d(in_channels = n_ch*5,
+                                 padding=self.padding),
+                                 nn.BatchNorm2d(n_f//2),
+                                 nn.ReLU()
+                                    )
+        
+        self.conv2 = nn.Sequential(nn.Conv2d(in_channels=n_f//2,
+                                 out_channels=n_f,
+                                 kernel_size=k_sz,
+                                 padding=self.padding),
+                                 nn.BatchNorm2d(n_f),
+                                 nn.ReLU()
+                                    )
+                                 
+        
+        self.deconv1 = nn.Sequential(nn.Conv2d(in_channels = n_f,
+                                 out_channels= n_f//2,
+                                 kernel_size=k_sz,
+                                 padding=self.padding),
+                                 nn.BatchNorm2d(n_f//2),
+                                 nn.ReLU()
+                                    )
+        
+        self.deconv2 = nn.Sequential(nn.Conv2d(in_channels = n_f//2,
                                 out_channels= n_ch,
                                 kernel_size=k_sz,
-                                padding=self.padding)
+                                padding=self.padding),
+                                 nn.BatchNorm2d(n_ch),
+                                 nn.ReLU()
+                                    )
         
     def autoencoder(self, x, frames, n_predictions, h_t1, c_t1, h_t2, c_t2, h_t3, c_t3, h_t4, c_t4):
 
         #Encoder  
         for i in range(frames):
             
-            x_conved = self.conv(x[:,i,:,:,:])
-            h_t1,c_t1 = self.enc1(input_tensor =  x_conved,
+            x_conv_1= self.conv1(x[:,i,:,:,:]) #32
+            x_conv_2 = self.conv2(x_conv_1) #64
+            h_t1,c_t1 = self.enc1(input_tensor =  x_conv_2, #32
                                   cur_state = [h_t1,c_t1]
-                                  )
-            h_t2,c_t2 = self.enc2(input_tensor = h_t1,
+                                  )    
+            
+            h_t2,c_t2 = self.enc2(input_tensor = h_t1, #16
                                   cur_state = [h_t2,c_t2]
                                   )
-        encoder_output = h_t2
-        skip_layer = x_conved
 
         #Decoder
         for i in range(n_predictions):
 
-            h_t3,c_t3 = self.dec1(input_tensor = encoder_output,
-                                  cur_state = [h_t3,c_t3]
+            x_conv_1= self.conv1(x[:,i,:,:,:]) #32
+            skip_A= x_conv_1
+
+            x_conv_2 = self.conv2(x_conv_1) #64
+            skip_B = x_conv_2
+
+            h_t1,c_t1 = self.enc1(input_tensor =  x_conv_2, #32
+                                  cur_state = [h_t1,c_t1]
+                                  )
+            skip_C = h_t1
+            
+            h_t2,c_t2 = self.enc2(input_tensor = h_t1, #16
+                                  cur_state = [h_t2,c_t2]
+                                  )
+            
+            h_t3,c_t3 = self.dec1(input_tensor = h_t2, #32
+                                  cur_state = [h_t3,c_t3] 
                                   )
                 
-            h_t4,c_t4 = self.dec2(input_tensor =  h_t3,
+            h_t4,c_t4 = self.dec2(input_tensor =  torch.add(h_t3,skip_C),  #64
                                   cur_state = [h_t4,c_t4]
                                   )
-            #Here i add back the skip layer
-            last_layer = self.deconv(torch.add(skip_layer,h_t4)) #Should be of dim [b_s, 5, w, h]
-            decoder_output=last_layer
-            #Create a new skip layer
-            skip_layer = self.conv(last_layer)
+            x_deconv_1 = self.deconv1(torch.add(h_t4,skip_B)) #32
+            x_deconv_2 = self.deconv2(torch.add(x_deconv_1,skip_A)) #1
+
+            out = x_deconv_2
+            
             if i == 0:
-                seq = decoder_output.unsqueeze(1)
+                seq = out.unsqueeze(1)
                 #print('SEQ SIZE =',seq.size())
             else:
-                seq = torch.cat((seq, decoder_output.unsqueeze(1)), 2)
-                #print('SEQ SIZE =',seq.size())
-        #seq dovrebbe avere dim = [b_s, n_features, n_p, h, w] ([16,64,10,64,64])
-        #Lui fa conv3D invertendo in seconda posizione n_f(=64) e n_p(=10). Provo a fare così ma non mi piace.
-        #In caso cambio.
-        #outputs = self.conv_3D(seq)
-        #print('CIAO SONO GIACOMO',seq[0,0,5,20:40,20:40])
-        #print('MAX of pre sifmoid',torch.max(seq[0,0,5,:,:]))
-
-
-
-        # print('studio del output.Vediamo se ci sono valori maggiori di 1')
-        # for i in range(16):
-        #     indici_positivi = (seq[i,0,0,:,:] > 1).nonzero()
-
-        #     # Stampa i valori maggiori di zero
-        #     for indice in indici_positivi:
-        #         riga, colonna = indice.tolist()
-        #         valore = seq[i,0,0,riga, colonna].item()
-        #         print(f"Valore positivo trovato: {valore} alla posizione [riga {riga}, colonna {colonna}]")
-
-
-        outputs = torch.nn.Sigmoid()(seq)
-        #print('E ORA SONO COSI',outputs[0,0,5,20:40,20:40])
-        #print('MAX of output',torch.max(outputs[0,0,5,:,:]))
+                seq = torch.cat((seq, out.unsqueeze(1)), 2)
+        seq = seq.squeeze()
+        outputs = torch.nn.Sigmoid()(seq)*255.0
         return outputs
     
     def forward(self, x, n_p = 10):       
@@ -177,6 +193,7 @@ class EncoderDecoder(pl.LightningModule):
            W = Width
         """
         x = torch.unsqueeze(x,2) #Add channel size, that is equal to 1
+        x.to(device=dev)
         b_s, frs, _, h, w = x.size()
 
         # inizialization of the hidden states
@@ -192,19 +209,8 @@ class EncoderDecoder(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch['frames'].float(), batch['y'].float()
-        out= self(x).squeeze()*255.0
-        # print('TRAINING: type dei frame x', x.dtype)
-        # print('TRAINING: type dei groundtruth y', y.dtype)
-        # print('TRAINING: type degli out', out.dtype)        
+        out= self(x)
 
-        # for i in range(64):
-        #     for j in range(64):
-        #         if y[0,0,i,j]!= 0. :
-
-        #             print('CARRAMBA',y[0,0,i,j])
-    
-
-        #print('LA DIFF. TRA I DUE E',torch.sub(out,y)[0,0,20:40,20:40])
         loss = self.loss(y,out)
         #print('LOSS',loss)
         self.log("mse", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
@@ -214,7 +220,7 @@ class EncoderDecoder(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch['frames'].float(), batch['y'].float()
-        out= self(x).squeeze()*255.0
+        out= self(x)
 
         loss = self.loss(y,out)
         self.log("validation_loss", loss, on_epoch=True)
@@ -222,9 +228,7 @@ class EncoderDecoder(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         x, y = batch['frames'].float(), batch['y'].float()
-        x = x/255.0
-
-        out = self(x).squeeze()*255.0
+        out = self(x)
 
         loss = self.loss(out, y)
         self.log("test_loss", loss, on_epoch=True)
