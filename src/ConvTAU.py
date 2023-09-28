@@ -5,6 +5,7 @@ from torch import optim, nn
 import lightning.pytorch as pl
 
 from src.parameters import params_ConvTAU
+from src.OpticalFlow import OpticalFlowEstimator, OpticalLayer
 
 # Code customized and extended from: https://github.com/chengtan9907/OpenSTL 
     
@@ -149,7 +150,6 @@ class MixMlp(nn.Module):
 
 
 class TAUModule(nn.Module):
-    """The hidden Translator of MetaFormer for SimVP"""
 
     def __init__(self, in_channels, out_channels, kernel_size=21, mlp_ratio=8., drop=0.0, init_value=1e-2):
         super(TAUModule, self).__init__()
@@ -208,22 +208,29 @@ class ConvTAU(pl.LightningModule):
         super().__init__()
         self.params = params
         self.mse = nn.MSELoss() # to focus on intra-frame-level differences
-        T, C, H, W = params['in_shape']  # T is pre_seq_length
+        T, C, H, W = params['in_shape'] 
         H, W = int(H / 2**(params['N_S']/2)), int(W / 2**(params['N_S']/2))  # downsample 1 / 2**(N_S/2)
         
-        self.enc = Encoder(C, params['hid_S'], params['N_S'], params['spatio_kernel_enc'])
+        self.enc = Encoder(C + 2, params['hid_S'], params['N_S'], params['spatio_kernel_enc'])
         self.hid = TAU(T*params['hid_S'], params['hid_T'], params['N_T'], mlp_ratio=params['mlp_ratio'], drop=params['drop'])
         self.dec = Decoder(params['hid_S'], C, params['N_S'], params['spatio_kernel_dec'])
 
+        self.flow_estimator = OpticalLayer()
+        
 
     def forward(self, x):
-        # Encoding
         x =  x.unsqueeze(2)
         B, T, C, H, W = x.shape
+        
+        # Optical Flow 
+        flow = self.flow_estimator(x)
+        
+        # Encoding
         x = x.view(B*T, C, H, W)
+        x = torch.cat((x, flow), 1)
         embed, skip = self.enc(x)
         _, C_, H_, W_ = embed.shape
-
+        
         # TAU
         z = embed.view(B, T, C_, H_, W_)
         hid = self.hid(z)
