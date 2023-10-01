@@ -23,7 +23,7 @@ class ParamsConvLSTM():
         self.frames_per_sample = shared_params['MOVING_MNIST_INPUT_FRAMES']
 
         self.batch_size = 16
-        self.training_epochs = 50
+        self.training_epochs = 5
         
         self.learning_rate = 0.01
 
