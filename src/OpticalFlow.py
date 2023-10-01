@@ -39,7 +39,7 @@ class OpticalFlowEstimator(nn.Module):
         
         self.resolution = 128
 
-        for param in self.parameters(): param.requires_grad = False # For the moment, we don't want to train this model.
+        for param in self.parameters(): param.requires_grad = False
 
     def forward(self, prev_frame, curr_frame):
         prev_frame, curr_frame = self.preprocess(prev_frame, curr_frame)
@@ -47,7 +47,7 @@ class OpticalFlowEstimator(nn.Module):
     
     def forward_sequence(self, frames):
         B, T, C, H, W = frames.shape
-        flows = [torch.zeros((B, 2, self.resolution, self.resolution))]
+        flows = [torch.zeros((B, 2, self.resolution, self.resolution), device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))]
         prev_frames = torch.cat([frames[:, 0, :], frames[:, 0, :], frames[:, 0, :]], 1).float()
         for i in range(1, T):
             curr_frames = torch.cat([frames[:, 1, :], frames[:, 1, :], frames[:, i, :]], 1).float()
