@@ -47,14 +47,14 @@ class OpticalFlowEstimator(nn.Module):
     
     def forward_sequence(self, frames):
         B, T, C, H, W = frames.shape
-        flows = [torch.zeros((B, 2, self.resolution, self.resolution), device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))]
+        flows = []
         prev_frames = torch.cat([frames[:, 0, :], frames[:, 0, :], frames[:, 0, :]], 1).float()
         for i in range(1, T):
             curr_frames = torch.cat([frames[:, 1, :], frames[:, 1, :], frames[:, i, :]], 1).float()
             flow = self.forward(prev_frames, curr_frames)[-1]
             flows.append(flow)
             prev_frames = curr_frames
-        
+        flows.insert(0, torch.zeros_like(flows[0]))
         return torch.cat(flows)
         
 
