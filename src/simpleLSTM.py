@@ -54,9 +54,8 @@ class SimpleLSTM(pl.LightningModule):
         out, _ = self(x)
 
         loss = self.loss(out, y)
-        print(loss)
-        # self.log("mse", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        # self.log("train_loss", loss, on_epoch=True)
+        self.log("mse", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log("train_loss", loss, on_epoch=True)
         return loss
     
     def validation_step(self, batch, batch_idx):
