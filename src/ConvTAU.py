@@ -93,9 +93,9 @@ class TemporalAttentionModule(nn.Module):
         d_p = (d_k - 1) // 2
         dd_k = int( kernel_size // dilation + ((kernel_size // dilation) % 2 - 1) )
         dd_p = (dilation * (dd_k - 1) // 2)
-        self.conv0 = nn.Conv2d(dim, dim, d_k, padding=d_p, groups=dim)
-        self.conv_spatial = nn.Conv2d(dim, dim, dd_k, stride=1, padding=dd_p, groups=dim, dilation=dilation)
-        self.conv1 = nn.Conv2d(dim, dim, 1)
+        self.conv0 = nn.Conv2d(dim, dim, d_k, padding=d_p, groups=dim) # depth-wise conv
+        self.conv_spatial = nn.Conv2d(dim, dim, dd_k, stride=1, padding=dd_p, groups=dim, dilation=dilation) # depth-wise dilation conv
+        self.conv1 = nn.Conv2d(dim, dim, 1) # 1x1 conv
 
         # Dynamical Attention Layers
         self.reduction = max(dim // reduction, 4)
@@ -116,10 +116,10 @@ class TemporalAttentionModule(nn.Module):
         x = self.activation(self.proj_1(x))
         skip2 = x.clone()
         
-        # Dynamical Attention
-        statical_attn = self.conv0(x)                    # depth-wise conv
-        statical_attn = self.conv_spatial(statical_attn) # depth-wise dilation convolution
-        statical_attn = self.conv1(statical_attn)        # 1x1 conv
+        # Statical Attention
+        statical_attn = self.conv0(x)                    
+        statical_attn = self.conv_spatial(statical_attn) 
+        statical_attn = self.conv1(statical_attn)        
         
         # Dynamical Attention
         b, c, _, _ = x.size()
@@ -134,24 +134,23 @@ class TemporalAttentionModule(nn.Module):
 
 class MixMlp(nn.Module):
     def __init__(self,
-                 in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
+                 in_features, hidden_features=None, out_features=None, act_layer=nn.GELU):
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
         self.fc1 = nn.Conv2d(in_features, hidden_features, 1)  # 1x1
-        self.dwconv = nn.Conv2d(hidden_features, hidden_features, 3, 1, 1, bias=True, groups=hidden_features) # CFF: Convolutional feed-forward network
-        self.act = act_layer()                                 # GELU
+        self.dwconv = nn.Conv2d(hidden_features, hidden_features, 3, 1, 1, bias=True, groups=hidden_features)
+        self.act = act_layer()
         self.fc2 = nn.Conv2d(hidden_features, out_features, 1) # 1x1
-        self.drop = nn.Dropout(drop)
 
     def forward(self, x):
-        x = self.drop( self.fc2( self.drop( self.act( self.dwconv( self.fc1(x) ) ) ) ) )
+        x = self.fc2( self.act( self.dwconv( self.fc1(x) ) ) )
         return x
 
 
 class TAUModule(nn.Module):
 
-    def __init__(self, in_channels, out_channels, kernel_size=21, mlp_ratio=8., drop=0.0, init_value=1e-2):
+    def __init__(self, in_channels, out_channels, kernel_size=21, mlp_ratio=8., init_value=1e-2):
         super(TAUModule, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -161,7 +160,7 @@ class TAUModule(nn.Module):
 
         self.norm2 = nn.BatchNorm2d(in_channels)
         mlp_hidden_dim = int(in_channels * mlp_ratio)
-        self.mlp = MixMlp(in_features=in_channels, hidden_features=mlp_hidden_dim, act_layer=nn.GELU, drop=drop)
+        self.mlp = MixMlp(in_features=in_channels, hidden_features=mlp_hidden_dim, act_layer=nn.GELU)
         
         self.layer_scale_1 = nn.Parameter(init_value * torch.ones((in_channels)), requires_grad=True)
         self.layer_scale_2 = nn.Parameter(init_value * torch.ones((in_channels)), requires_grad=True)
@@ -176,19 +175,18 @@ class TAUModule(nn.Module):
 
 
 class TAU(nn.Module):
-    def __init__(self, channel_in, channel_hid, N_TAUModules, mlp_ratio, drop=0.0, drop_path=0.1):
+    def __init__(self, channel_in, channel_hid, N_TAUModules, mlp_ratio):
         super(TAU, self).__init__()
         assert N_TAUModules >= 2 and mlp_ratio > 1
         self.N2 = N_TAUModules
-        # dpr = [x.item() for x in torch.linspace(1e-2, drop_path, self.N2)] # stochastic depth decay rule
 
         # downsample
-        enc_layers = [TAUModule(channel_in, channel_hid, mlp_ratio, drop)]
+        enc_layers = [TAUModule(channel_in, channel_hid, mlp_ratio)]
         # middle layers
         for i in range(1, N_TAUModules-1):
-            enc_layers.append(TAUModule(channel_hid, channel_hid, mlp_ratio, drop))
+            enc_layers.append(TAUModule(channel_hid, channel_hid, mlp_ratio))
         # upsample
-        enc_layers.append(TAUModule(channel_hid, channel_in, mlp_ratio, drop))
+        enc_layers.append(TAUModule(channel_hid, channel_in, mlp_ratio))
         self.enc = nn.Sequential(*enc_layers)
 
     def forward(self, x):
