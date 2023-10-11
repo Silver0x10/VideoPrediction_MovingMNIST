@@ -163,7 +163,6 @@ class MixMlp(nn.Module):
         self.act = act_layer()                                 # GELU
         self.fc2 = nn.Conv2d(hidden_features, out_features, 1) # 1x1
         self.drop = nn.Dropout(drop)
-        self.apply(self._init_weights)
 
 
     def forward(self, x):
