@@ -225,7 +225,7 @@ class ConvTAU(pl.LightningModule):
         self.enc = Encoder(
             C + 2, params['hid_S'], params['N_S'], params['spatio_kernel_enc'])
         self.hid = TAU(T*params['hid_S'], params['hid_T'], params['N_T'],
-                       mlp_ratio=params['mlp_ratio'], drop=params['drop'])
+                       mlp_ratio=params['mlp_ratio'])
         self.dec = Decoder(params['hid_S'], C,
                            params['N_S'], params['spatio_kernel_dec'])
 
