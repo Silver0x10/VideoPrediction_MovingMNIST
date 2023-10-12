@@ -6,13 +6,17 @@ import lightning.pytorch as pl
 
 from src.parameters import params_ConvTAU
 
-# Code taken/adapted from: https://github.com/chengtan9907/OpenSTL 
-    
+# Code taken/adapted from: https://github.com/chengtan9907/OpenSTL
+
+
 def sampling_generator(N, reverse=False):
     samplings = [False, True] * (N // 2)
-    if reverse: return list(reversed(samplings[:N]))
-    else: return samplings[:N]
-    
+    if reverse:
+        return list(reversed(samplings[:N]))
+    else:
+        return samplings[:N]
+
+
 class Conv2d_layer(nn.Module):
 
     def __init__(self,
@@ -23,10 +27,10 @@ class Conv2d_layer(nn.Module):
                  upsampling=False,
                  dilation=1):
         super(Conv2d_layer, self).__init__()
-        
+
         stride = 2 if downsampling is True else 1
         padding = (kernel_size - stride + 1) // 2
-        
+
         if upsampling is True:
             self.conv = nn.Sequential(*[
                 nn.Conv2d(in_channels, out_channels*4, kernel_size=kernel_size,
@@ -41,20 +45,20 @@ class Conv2d_layer(nn.Module):
         self.norm = nn.GroupNorm(2, out_channels)
         self.act = nn.SiLU()
 
-
     def forward(self, x):
         y = self.conv(x)
         y = self.act(self.norm(y))
         return y
-    
-        
+
+
 class Encoder(nn.Module):
 
     def __init__(self, C_in, C_hid, N_S, spatio_kernel):
         super(Encoder, self).__init__()
         samplings = sampling_generator(N_S)
         self.enc = nn.Sequential(
-              Conv2d_layer(C_in, C_hid, spatio_kernel, downsampling=samplings[0]),
+            Conv2d_layer(C_in, C_hid, spatio_kernel,
+                         downsampling=samplings[0]),
             *[Conv2d_layer(C_hid, C_hid, spatio_kernel, downsampling=s) for s in samplings[1:]]
         )
 
@@ -72,8 +76,9 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         samplings = sampling_generator(N_S, reverse=True)
         self.dec = nn.Sequential(
-            *[Conv2d_layer(C_hid, C_hid, spatio_kernel, upsampling=s) for s in samplings[:-1]],
-              Conv2d_layer(C_hid, C_hid, spatio_kernel, upsampling=samplings[-1])
+            *[Conv2d_layer(C_hid, C_hid, spatio_kernel, upsampling=s)
+              for s in samplings[:-1]],
+            Conv2d_layer(C_hid, C_hid, spatio_kernel, upsampling=samplings[-1])
         )
         self.readout = nn.Conv2d(C_hid, C_out, 1)
 
@@ -83,7 +88,7 @@ class Decoder(nn.Module):
         Y = self.dec[-1](hid + enc1)
         Y = self.readout(Y)
         return Y
-    
+
 
 class TemporalAttentionModule(nn.Module):
 
@@ -102,16 +107,16 @@ class TemporalAttentionModule(nn.Module):
         self.reduction = max(dim // reduction, 4)
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Sequential(
-            nn.Linear(dim, dim // self.reduction, bias=False), # reduction
+            nn.Linear(dim, dim // self.reduction, bias=False),  # reduction
             nn.ReLU(True),
-            nn.Linear(dim // self.reduction, dim, bias=False), # expansion
+            nn.Linear(dim // self.reduction, dim, bias=False),  # expansion
             nn.Sigmoid()
         )
 
     def forward(self, x):
         u = x.clone()
         attn = self.conv0(x)           # depth-wise conv
-        attn = self.conv_spatial(attn) # depth-wise dilation convolution
+        attn = self.conv_spatial(attn)  # depth-wise dilation convolution
         f_x = self.conv1(attn)         # 1x1 conv
         # append a se operation
         b, c, _, _ = x.size()
@@ -128,7 +133,8 @@ class TemporalAttention(nn.Module):
 
         self.proj_1 = nn.Conv2d(d_model, d_model, 1)         # 1x1 conv
         self.activation = nn.GELU()                          # GELU
-        self.spatial_gating_unit = TemporalAttentionModule(d_model, kernel_size)
+        self.spatial_gating_unit = TemporalAttentionModule(
+            d_model, kernel_size)
         self.proj_2 = nn.Conv2d(d_model, d_model, 1)         # 1x1 conv
         self.attn_shortcut = attn_shortcut
 
@@ -143,6 +149,7 @@ class TemporalAttention(nn.Module):
             x = x + shortcut
         return x
 
+
 class DWConv(nn.Module):
     def __init__(self, dim=768):
         super(DWConv, self).__init__()
@@ -150,7 +157,8 @@ class DWConv(nn.Module):
 
     def forward(self, x):
         x = self.dwconv(x)
-        return x 
+        return x
+
 
 class MixMlp(nn.Module):
     def __init__(self,
@@ -159,11 +167,11 @@ class MixMlp(nn.Module):
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
         self.fc1 = nn.Conv2d(in_features, hidden_features, 1)  # 1x1
-        self.dwconv = DWConv(hidden_features)                  # CFF: Convlutional feed-forward network
+        # CFF: Convlutional feed-forward network
+        self.dwconv = DWConv(hidden_features)
         self.act = act_layer()                                 # GELU
-        self.fc2 = nn.Conv2d(hidden_features, out_features, 1) # 1x1
+        self.fc2 = nn.Conv2d(hidden_features, out_features, 1)  # 1x1
         self.drop = nn.Dropout(drop)
-
 
     def forward(self, x):
         x = self.fc1(x)
@@ -189,13 +197,18 @@ class TAUSubBlock(nn.Module):
         self.mlp = MixMlp(
             in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
 
-        self.layer_scale_1 = nn.Parameter(init_value * torch.ones((dim)), requires_grad=True)
-        self.layer_scale_2 = nn.Parameter(init_value * torch.ones((dim)), requires_grad=True)
-
+        self.layer_scale_1 = nn.Parameter(
+            init_value * torch.ones((dim)), requires_grad=True)
+        self.layer_scale_2 = nn.Parameter(
+            init_value * torch.ones((dim)), requires_grad=True)
 
     def forward(self, x):
-        x = x + self.layer_scale_1.unsqueeze(-1).unsqueeze(-1) * self.attn(self.norm1(x))
-        x = x + self.layer_scale_2.unsqueeze(-1).unsqueeze(-1) * self.mlp(self.norm2(x))
+        x = x + \
+            self.layer_scale_1.unsqueeze(-1).unsqueeze(-1) * \
+            self.attn(self.norm1(x))
+        x = x + \
+            self.layer_scale_2.unsqueeze(-1).unsqueeze(-1) * \
+            self.mlp(self.norm2(x))
         return x
 
 
@@ -256,26 +269,30 @@ class MidMetaNet(nn.Module):
 
         y = z.reshape(B, T, C, H, W)
         return y
-    
+
 
 class ConvTAU(pl.LightningModule):
     def __init__(self, params):
         super().__init__()
         self.params = params
-        self.mse = nn.MSELoss() # to focus on intra-frame-level differences
+        self.mse = nn.MSELoss()  # to focus on intra-frame-level differences
 
         T, C, H, W = params['in_shape']  # T is pre_seq_length
-        H, W = int(H / 2**(params['N_S']/2)), int(W / 2**(params['N_S']/2))  # downsample 1 / 2**(N_S/2)
-        
-        self.enc = Encoder(C, params['hid_S'], params['N_S'], params['spatio_kernel_enc'])
-        self.dec = Decoder(params['hid_S'], C, params['N_S'], params['spatio_kernel_dec'])
+        # downsample 1 / 2**(N_S/2)
+        H, W = int(H / 2**(params['N_S']/2)), int(W / 2**(params['N_S']/2))
 
-        self.hid = MidMetaNet(T*params['hid_S'], params['hid_T'], params['N_T'], input_resolution=(H, W), mlp_ratio=params['mlp_ratio'], drop=params['drop'], drop_path=params['drop_path'])
+        self.enc = Encoder(
+            C, params['hid_S'], params['N_S'], params['spatio_kernel_enc'])
+        self.dec = Decoder(params['hid_S'], C,
+                           params['N_S'], params['spatio_kernel_dec'])
+
+        self.hid = MidMetaNet(T*params['hid_S'], params['hid_T'], params['N_T'], input_resolution=(
+            H, W), mlp_ratio=params['mlp_ratio'], drop=params['drop'], drop_path=params['drop_path'])
 
     def forward(self, x):
         # out =  self.model(x.unsqueeze(2))
         # return out
-        x =  x.unsqueeze(2)
+        x = x.unsqueeze(2)
         B, T, C, H, W = x.shape
         x = x.view(B*T, C, H, W)
 
@@ -288,15 +305,13 @@ class ConvTAU(pl.LightningModule):
 
         out = self.dec(hid, skip)
         out = out.reshape(B, T, C, H, W)
-        
-        return out
 
+        return out
 
     def single_prediction(self, frames):
         frames = frames.unsqueeze(0).float()
         out = self(frames)
         return out.squeeze(0).squeeze(1).detach()
-
 
     def training_step(self, batch, batch_idx):
         x, y = batch['frames'].float(), batch['y'].float().unsqueeze(2)
@@ -331,7 +346,7 @@ class ConvTAU(pl.LightningModule):
         self.log("test_loss", loss, on_epoch=True)
         self.log("test_mse_loss", mse_loss, on_epoch=True)
         self.log("test_kl_loss", kl_loss, on_epoch=True)
-        
+
         out = out * 255.0
         y = y * 255.0
         loss_not_normalized, _, _ = self.loss(out, y)
@@ -339,12 +354,15 @@ class ConvTAU(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = optim.AdamW(self.parameters(), lr=self.params['learning_rate'], weight_decay=self.params['weight_decay'])
+        optimizer = optim.AdamW(self.parameters(
+        ), lr=self.params['learning_rate'], weight_decay=self.params['weight_decay'])
         return optimizer
 
-    def kullback_leibler_divergence(self, pred_y, batch_y, tau=0.1, eps=1e-12): # to focus on inter-frame-level differences
+    # to focus on inter-frame-level differences
+    def kullback_leibler_divergence(self, pred_y, batch_y, tau=0.1, eps=1e-12):
         B, T, C = pred_y.shape[:3]
-        if T <= 2:  return 0
+        if T <= 2:
+            return 0
         gap_pred_y = (pred_y[:, 1:] - pred_y[:, :-1]).reshape(B, T-1, -1)
         gap_batch_y = (batch_y[:, 1:] - batch_y[:, :-1]).reshape(B, T-1, -1)
         softmax_gap_p = nn.functional.softmax(gap_pred_y / tau, -1)
@@ -355,6 +373,7 @@ class ConvTAU(pl.LightningModule):
 
     def loss(self, pred, y):
         mse_loss = self.mse(pred, y)
-        kl_loss = self.params['kl_divergence_weight'] * self.kullback_leibler_divergence(pred, y)
+        kl_loss = self.params['kl_divergence_weight'] * \
+            self.kullback_leibler_divergence(pred, y)
         loss = mse_loss + kl_loss
         return (loss, mse_loss, kl_loss)

@@ -29,41 +29,47 @@ import matplotlib.pyplot as plt
 
 #     plt.tight_layout()
 
+
 class OpticalFlowEstimator(nn.Module):
     def __init__(self):
         super().__init__()
 
         weights = Raft_Small_Weights.DEFAULT
         self.transforms = weights.transforms()
-        self.estimator = raft_small(weights=Raft_Small_Weights.DEFAULT, progress=False)
-        
+        self.estimator = raft_small(
+            weights=Raft_Small_Weights.DEFAULT, progress=False)
+
         self.resolution = 128
 
-        for param in self.parameters(): param.requires_grad = False
+        for param in self.parameters():
+            param.requires_grad = False
 
     def forward(self, prev_frame, curr_frame):
         prev_frame, curr_frame = self.preprocess(prev_frame, curr_frame)
         return self.estimator(prev_frame, curr_frame)
-    
+
     def forward_sequence(self, frames):
         B, T, C, H, W = frames.shape
         flows = []
-        prev_frames = torch.cat([frames[:, 0, :], frames[:, 0, :], frames[:, 0, :]], 1).float()
+        prev_frames = torch.cat(
+            [frames[:, 0, :], frames[:, 0, :], frames[:, 0, :]], 1).float()
         for i in range(1, T):
-            curr_frames = torch.cat([frames[:, 1, :], frames[:, 1, :], frames[:, i, :]], 1).float()
+            curr_frames = torch.cat(
+                [frames[:, 1, :], frames[:, 1, :], frames[:, i, :]], 1).float()
             flow = self.forward(prev_frames, curr_frames)[-1]
             flows.append(flow)
             prev_frames = curr_frames
         flows.insert(0, torch.zeros_like(flows[0]))
         return torch.cat(flows)
-        
 
     def preprocess(self, prev_frame, curr_frame):
-        prev_frame = F.resize(prev_frame, size=[self.resolution, self.resolution], antialias=False)
-        curr_frame = F.resize(curr_frame, size=[self.resolution, self.resolution], antialias=False)
+        prev_frame = F.resize(
+            prev_frame, size=[self.resolution, self.resolution], antialias=False)
+        curr_frame = F.resize(
+            curr_frame, size=[self.resolution, self.resolution], antialias=False)
         return self.transforms(prev_frame, curr_frame)
-    
-    
+
+
 class OpticalLayer(nn.Module):
     def __init__(self):
         super().__init__()
@@ -72,10 +78,7 @@ class OpticalLayer(nn.Module):
         self.conv = nn.Conv2d(2, 2, kernel_size=3, stride=2, padding=1)
         self.activation = nn.ReLU()
 
-
     def forward(self, x):
         flows = self.optical_flow_estimator.forward_sequence(x)
-        flows = self.activation(self.conv(flows)) # downsample
+        flows = self.activation(self.conv(flows))  # downsample
         return flows
-    
-    
